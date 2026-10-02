@@ -61,11 +61,14 @@ try {
     Get-ChildItem -LiteralPath (Join-Path $projectRoot 'package\guides') -Filter 'INSTALL-GK2COOP.*.txt' | ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $guideStage $_.Name)
     }
-    # The mod's license, and the licenses of BepInEx and its libraries (Doorstop's LGPL in full).
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Path $packageStage 'LICENSE.txt')
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'THIRD-PARTY-NOTICES.txt') -Destination (Join-Path $packageStage 'THIRD-PARTY-NOTICES.txt')
-    New-Item -ItemType Directory -Force -Path (Join-Path $packageStage 'third-party') | Out-Null
-    Copy-Item -LiteralPath (Join-Path $projectRoot 'third-party\UnityDoorstop-LICENSE.txt') -Destination (Join-Path $packageStage 'third-party\UnityDoorstop-LICENSE.txt')
+    # The mod's license, and the licenses of BepInEx and its libraries (Doorstop's LGPL in full), in
+    # the mod's own folder: the guide's uninstall (delete BepInEx\plugins\GK2Coop) takes them along,
+    # and nothing more lands next to the game's exe. The Workshop updater copies the folder with them.
+    $licenseStage = Join-Path $packageStage 'BepInEx\plugins\GK2Coop'
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'LICENSE') -Destination (Join-Path $licenseStage 'LICENSE.txt')
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'THIRD-PARTY-NOTICES.txt') -Destination (Join-Path $licenseStage 'THIRD-PARTY-NOTICES.txt')
+    New-Item -ItemType Directory -Force -Path (Join-Path $licenseStage 'third-party') | Out-Null
+    Copy-Item -LiteralPath (Join-Path $projectRoot 'third-party\UnityDoorstop-LICENSE.txt') -Destination (Join-Path $licenseStage 'third-party\UnityDoorstop-LICENSE.txt')
 
     if (Test-Path -LiteralPath $OutputPath -PathType Leaf) {
         $backupDir = Join-Path $artifactRoot 'package-backups'
@@ -74,7 +77,23 @@ try {
         Copy-Item -LiteralPath $OutputPath -Destination (Join-Path $backupDir ("$(Split-Path -Leaf $OutputPath).$oldHash.bak")) -Force
         Remove-Item -LiteralPath $OutputPath -Force
     }
-    Compress-Archive -Path (Join-Path $packageStage '*') -DestinationPath $OutputPath -CompressionLevel Optimal
+    # Not Compress-Archive: in Windows PowerShell it writes the paths with '\', against the zip
+    # format; Explorer copes, but other tools (unzip on Linux or a Steam Deck) then extract every
+    # file flat into one folder, named "BepInEx\core\...". Entries here use '/'.
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $stageRoot = [IO.Path]::GetFullPath($packageStage).TrimEnd('\') + '\'
+    $zip = [IO.Compression.ZipFile]::Open($OutputPath, [IO.Compression.ZipArchiveMode]::Create)
+    try {
+        foreach ($item in Get-ChildItem -LiteralPath $packageStage -Recurse -Force | Sort-Object FullName) {
+            $name = $item.FullName.Substring($stageRoot.Length).Replace('\', '/')
+            if ($item.PSIsContainer) {
+                # Empty folders (BepInEx\config) are kept as folder entries.
+                if (-not (Get-ChildItem -LiteralPath $item.FullName -Force | Select-Object -First 1)) { [void]$zip.CreateEntry($name + '/') }
+            } else {
+                [void][IO.Compression.ZipFileExtensions]::CreateEntryFromFile($zip, $item.FullName, $name, [IO.Compression.CompressionLevel]::Optimal)
+            }
+        }
+    } finally { $zip.Dispose() }
 }
 finally {
     if (Test-Path -LiteralPath $resolvedPackageStage -PathType Container) {

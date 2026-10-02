@@ -395,6 +395,22 @@ public sealed class GameplayProbe : BaseUnityPlugin
     private static IEnumerable List(object obj, string name) => G(obj, name) as IEnumerable ?? new object[0];
     private static string Id(object obj) => Convert.ToString(G(G(obj, "UniqueId"), "Id"));
     private static string Items(object inv) => string.Join(";", List(G(inv, "Data"), "Inventory").Cast<object>().Select(i => G(i, "id") + "x" + G(i, "Count")));
+    // The items an inventory takes, as the game decides it for an add (empty slots count, bags
+    // too): up to max of them, the given id first when it is taken.
+    private static System.Collections.Generic.List<string> AcceptedItems(object inventoryData, int max, string first)
+    {
+        var result = new System.Collections.Generic.List<string>();
+        System.Collections.Generic.IEnumerable<string> ids = List(G(T("GameBalance"), "Me"), "itemDefs").Cast<object>().Select(d => Convert.ToString(G(d, "id")));
+        if (first != null) ids = new[] { first }.Concat(ids.Where(i => i != first));
+        foreach (string id in ids)
+        {
+            bool ok;
+            try { ok = Convert.ToBoolean(Call(inventoryData, "CanAddItemToInventory", Item(id, 1), true, false)); }
+            catch { continue; }
+            if (ok) { result.Add(id); if (result.Count >= max) break; }
+        }
+        return result;
+    }
     // One item with its nested items and extra properties (durability, quality…), the parts a
     // plain "id x count" copy loses.
     private static string Describe(object item, int depth)
@@ -1464,9 +1480,25 @@ public sealed class GameplayProbe : BaseUnityPlugin
                 Call(player, "CollectDrop", view);
                 return "COLLECT inventory=" + Items(G(player, "inventory"));
             case "container-add":
+            {
                 object inv = G(wgos.Single(w => Id(w) == args[1]), "Inventory");
-                object added = Call(inv, "AddItemToInventory", Item(args[2], int.Parse(args[3])), null, false);
-                return "ADD " + added + " items=" + Items(inv);
+                // "auto": the first item the container takes, wood first (since game 1.007 some
+                // containers, a conveyor source among them, refuse wood).
+                string addId = args[2] == "auto" ? AcceptedItems(G(inv, "Data"), 1, "wood").FirstOrDefault() : args[2];
+                if (addId == null) return "ADD False item=none items=" + Items(inv);
+                object added = Call(inv, "AddItemToInventory", Item(addId, int.Parse(args[3])), null, false);
+                return "ADD " + added + " item=" + addId + " items=" + Items(inv);
+            }
+            case "container-accepts":
+            {
+                // What the game says the container takes (Item.CanAddItemToInventory), the first N of
+                // the item catalogue, and whether it takes wood.
+                object accWgo = wgos.Single(w => Id(w) == args[1]);
+                object accData = G(G(accWgo, "Inventory"), "Data");
+                var accepted = AcceptedItems(accData, args.Length > 2 ? int.Parse(args[2]) : 10, null);
+                return "ACCEPTS " + args[1] + " " + G(accWgo, "id") + " size=" + G(accData, "inventorySize") +
+                    " wood=" + AcceptedItems(accData, 1, "wood").Contains("wood") + " items=" + string.Join(",", accepted.ToArray());
+            }
             case "container-remove":
                 object removeInv = G(wgos.Single(w => Id(w) == args[1]), "Inventory");
                 Call(removeInv, "RemoveItemById", args[2], int.Parse(args[3]), null, null, false);

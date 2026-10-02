@@ -1437,13 +1437,16 @@ try {
     }
     if ($ConveyorExperiment) {
         $sourceConveyor = '5db2e35c-db50-42ec-84aa-184eb5b013d0'
-        $added = (((Probe $ConveyorSourcePeer "container-add|$sourceConveyor|wood|1") -split "`n") | Where-Object { $_ -like 'ADD *' }) -join ''
-        Check ($added -match 'woodx1') "$ConveyorSourcePeer puts one wood item into the powered conveyor source ($added)"
+        # Wood when the source takes it; since game 1.007 it may not, then the first item it takes.
+        $added = (((Probe $ConveyorSourcePeer "container-add|$sourceConveyor|auto|1") -split "`n") | Where-Object { $_ -like 'ADD *' }) -join ''
+        $conveyorItem = if ($added -match ' item=(\S+) ') { $Matches[1] } else { 'none' }
+        $itemPattern = 'items=' + [regex]::Escape($conveyorItem) + 'x'
+        Check ($added -match '^ADD True' -and $added -match ($itemPattern + '1')) "$ConveyorSourcePeer puts one item ($conveyorItem) into the powered conveyor source ($added)"
         $trace = New-Object System.Collections.Generic.List[string]
         for ($i = 0; $i -lt 8; $i++) {
             Start-Sleep -Seconds 5
             foreach ($side in 'Host','Client') {
-                $state = (((Probe $side 'conveyors') -split "`n") | Where-Object { $_ -like 'CONVEYOR *' -and $_ -match 'items=woodx[1-9]' }) -join ' | '
+                $state = (((Probe $side 'conveyors') -split "`n") | Where-Object { $_ -like 'CONVEYOR *' -and $_ -match ($itemPattern + '[1-9]') }) -join ' | '
                 $trace.Add("t+$(5*($i+1))s $side $state")
             }
         }
@@ -1457,10 +1460,10 @@ try {
         [IO.File]::WriteAllText((Join-Path $OutputPath 'conveyor-trace.txt'), ($trace -join "`n"))
         $lastHost = $trace | Where-Object { $_ -like 't+40s Host *' } | Select-Object -Last 1
         $lastClient = $trace | Where-Object { $_ -like 't+40s Client *' } | Select-Object -Last 1
-        $hostItem = if ($lastHost -match 'CONVEYOR ([0-9a-f-]{36}) .*items=woodx1') { $Matches[1] } else { '' }
-        $clientItem = if ($lastClient -match 'CONVEYOR ([0-9a-f-]{36}) .*items=woodx1') { $Matches[1] } else { '' }
+        $hostItem = if ($lastHost -match ('CONVEYOR ([0-9a-f-]{36}) .*' + $itemPattern + '1')) { $Matches[1] } else { '' }
+        $clientItem = if ($lastClient -match ('CONVEYOR ([0-9a-f-]{36}) .*' + $itemPattern + '1')) { $Matches[1] } else { '' }
         Check ($hostItem -and $hostItem -eq $clientItem -and $hostItem -ne $sourceConveyor -and
-            $lastHost -notmatch '\| CONVEYOR ' -and $lastClient -notmatch '\| CONVEYOR ') "One wood item remains in the same downstream conveyor cell on both peers (host $hostItem; joiner $clientItem)"
+            $lastHost -notmatch '\| CONVEYOR ' -and $lastClient -notmatch '\| CONVEYOR ') "One $conveyorItem item remains in the same downstream conveyor cell on both peers (host $hostItem; joiner $clientItem)"
     }
     if ($Explore) {
         foreach ($command in $Explore) {

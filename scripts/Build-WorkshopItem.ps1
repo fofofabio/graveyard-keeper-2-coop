@@ -34,6 +34,13 @@ Get-ChildItem -LiteralPath (Join-Path $resolved 'GK2Coop-Guides') -Filter 'INSTA
 Get-ChildItem -LiteralPath (Join-Path $projectRoot 'package\guides') -Filter 'WORKSHOP-INSTALL.*.txt' | ForEach-Object {
     Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $resolved ('GK2Coop-Guides\' + ($_.Name -replace '^WORKSHOP-INSTALL', 'INSTALL-GK2COOP')))
 }
+# The Workshop creator takes the item's preview picture from Thumbnail.png/.jpg in the folder
+# (and leaves it out of the content). Without one it makes an empty black Thumbnail.png and
+# uploads that, so the folder must carry the real one. It looks for .png first.
+$preview = Join-Path $projectRoot 'release\media\preview.jpg'
+if (-not (Test-Path -LiteralPath $preview)) { throw "No Workshop preview picture at $preview" }
+if ((Get-Item -LiteralPath $preview).Length -ge 1MB) { throw "The Workshop preview must be under 1 MB: $preview" }
+Copy-Item -LiteralPath $preview -Destination (Join-Path $resolved 'Thumbnail.jpg')
 
 $dll = Join-Path $resolved 'BepInEx\plugins\GK2Coop\GK2Coop.dll'
 $version = [Reflection.AssemblyName]::GetAssemblyName($dll).Version.ToString(3)
@@ -49,6 +56,10 @@ Pinned Workshop item id in this build: $pinned
 First upload: the id is 0, so installed copies cannot update themselves yet. After the first
 upload, put the new item id into CoopWorkshopUpdater.PublishedItemId, rebuild, and upload again
 as an update to the same item. Every later version then reaches players who copied it in once.
+
+Every upload with the game's Workshop creator (Shift+F11) also sets the item's description to its
+title and its visibility to Unlisted. After each upload, on the item's Steam page: paste the text of
+release\WORKSHOP-DESCRIPTION.txt again, and set the visibility back to Public.
 "@ | Set-Content -LiteralPath (Join-Path $resolved '_UPLOAD-NOTES.txt') -Encoding UTF8
 
 Write-Host "Workshop item folder: $resolved"

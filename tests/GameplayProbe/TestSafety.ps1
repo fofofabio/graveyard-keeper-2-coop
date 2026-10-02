@@ -145,21 +145,45 @@ function Start-TestGame([string]$Path) {
     return $process
 }
 
+# Files the game writes into the player's own data folder whatever save folder a test uses: since
+# game 1.007 the bug reporter notes the last loaded slot there, and a test game set it to a test slot.
+$script:SharedGameFiles = @('bug-reporter-relevant-save.txt')
+$script:SharedGameFolder = Join-Path $env:USERPROFILE 'AppData\LocalLow\Lazy Bear Games\Graveyard Keeper 2'
+
 function Save-GamePrefs {
     $values = @{}
     if (Test-Path $script:GamePrefsKey) {
         $key = Get-Item $script:GamePrefsKey
         foreach ($name in $key.GetValueNames()) { $values[$name] = @($key.GetValue($name, $null, 'DoNotExpandEnvironmentNames'), $key.GetValueKind($name)) }
     }
+    foreach ($file in $script:SharedGameFiles) {
+        $path = Join-Path $script:SharedGameFolder $file
+        # The comma keeps the bytes one array (an if would hand them out one by one).
+        $bytes = if (Test-Path -LiteralPath $path) { ,[IO.File]::ReadAllBytes($path) } else { $null }
+        $values["<file>$file"] = @($bytes, 'File')
+    }
     return $values
 }
 
-# Puts back every preference a test instance changed (window size, fullscreen, the game's settings blob).
+# Puts back every preference a test instance changed (window size, fullscreen, the game's settings
+# blob) and the shared files above.
 function Restore-GamePrefs($Saved) {
-    if (-not $Saved -or -not (Test-Path $script:GamePrefsKey)) { return 0 }
-    $key = Get-Item $script:GamePrefsKey
+    if (-not $Saved) { return 0 }
     $restored = 0
+    foreach ($name in @($Saved.Keys | Where-Object { $_ -like '<file>*' })) {
+        $path = Join-Path $script:SharedGameFolder $name.Substring(6)
+        $was = $Saved[$name][0]
+        $now = if (Test-Path -LiteralPath $path) { ,[IO.File]::ReadAllBytes($path) } else { $null }
+        if ($null -eq $was) {
+            if ($null -ne $now) { Remove-Item -LiteralPath $path -Force; $restored++ }
+        } elseif ($null -eq $now -or [Convert]::ToBase64String($was) -ne [Convert]::ToBase64String($now)) {
+            [IO.File]::WriteAllBytes($path, $was); $restored++
+        }
+    }
+    if (-not (Test-Path $script:GamePrefsKey)) { return $restored }
+    $key = Get-Item $script:GamePrefsKey
     foreach ($name in $Saved.Keys) {
+        if ($name -like '<file>*') { continue }
         if ($name -like 'unity*session*') { continue }
         $now = $key.GetValue($name, $null, 'DoNotExpandEnvironmentNames')
         $was = $Saved[$name][0]

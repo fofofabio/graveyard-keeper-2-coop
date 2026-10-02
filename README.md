@@ -9,6 +9,8 @@ This mod is not official. The developers and the publisher of the game did not m
 
 This version is a beta version. Please [report problems](../../issues).
 
+This version is for Graveyard Keeper 2 version 1.007.1 (Steam build 25601286).
+
 > **CAUTION:** Make a backup of your saves before you use this mod.
 
 > **NOTE:** Your friends can join only after your first sleep in the game. When you sleep for the
@@ -22,6 +24,13 @@ This version is a beta version. Please [report problems](../../issues).
 4. Extract all files from the zip file into the game folder, next to `GraveyardKeeper2.exe`.
 5. If Windows asks about files with the same name, replace the files.
 6. Start the game. The main menu shows a new button: **Co-op**.
+
+> **NOTE:** If you use other BepInEx mods: the zip file contains BepInEx 5.4.23.5 x64. Replace the
+> files. Your other mods and their settings stay.
+
+You can also install the mod from the
+[Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3811794693). If you install
+the mod from the Workshop, the mod installs its updates when the game starts.
 
 All players must use the same version of the mod. If the versions are different, the mod shows a
 message with the two version numbers.

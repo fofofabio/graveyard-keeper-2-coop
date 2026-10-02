@@ -34,7 +34,7 @@ namespace GK2Coop
         internal const string AppId = "4358690";
 
         /// <summary>The published Workshop item id, set once the mod has been uploaded. Zero disables updating.</summary>
-        internal const ulong PublishedItemId = 0;
+        internal const ulong PublishedItemId = 3811794693;
 
         private const string OldSuffix = ".old";
 
