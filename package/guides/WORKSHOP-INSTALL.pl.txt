@@ -1,0 +1,72 @@
+﻿Graveyard Keeper 2 Co-op - instalacja z Warsztatu Steam
+
+Steam pobiera tego moda, ale nie może go włączyć. Skopiuj go raz do gry; potem
+mod sam instaluje swoje aktualizacje przy uruchomieniu gry.
+
+1. Zasubskrybuj, a potem zamknij grę.
+2. Otwórz folder pobierania tego elementu:
+     <biblioteka Steam>\steamapps\workshop\content\4358690\<id elementu>
+   (W Steamie: prawy klik na grze > Zarządzaj > Przeglądaj pliki lokalne, przejdź
+   dwa foldery wyżej, potem workshop\content.)
+3. Skopiuj całą zawartość tego folderu do folderu gry, obok GraveyardKeeper2.exe,
+   i zgódź się na scalenie folderów.
+4. Uruchom grę. W menu głównym jest teraz przycisk „Co-op” pod przyciskami gry.
+
+Każdy, kto gra razem, potrzebuje moda w tej samej wersji. Gdy Steam zaktualizuje
+element, uruchom grę raz; menu główne poinformuje o nowej wersji, a następne
+uruchomienie jej użyje.
+
+GRA PRZEZ STEAM
+5. Gospodarz: w menu głównym naciśnij „Co-op”, a potem „Załóż grę”. Wybierz
+   liczbę graczy i naciśnij „Załóż przez Steam”. Wczytaj zapis albo zacznij nową
+   grę. W grze F10 zaprasza znajomych.
+6. Znajomi: przyjmijcie zaproszenie na Steamie albo otwórzcie „Co-op” >
+   „Dołącz do gry” i naciśnijcie „Dołącz” obok gospodarza. Gracie w kopii świata
+   gospodarza; wasze własne zapisy pozostają nietknięte.
+
+GRA BEZ STEAM
+7. Gospodarz: „Załóż grę” > „Załóż bez Steam” > „Załóż”. Naciśnij
+   „Pokaż moje adresy” i podaj jeden z nich pozostałym.
+8. Znajomi: „Dołącz do gry” > „Dołącz przez adres”, wpiszcie adres i naciśnijcie
+   „Dołącz”. Przez internet router gospodarza musi przekierować port UDP 8889,
+   albo użyjcie VPN takiego jak Tailscale.
+
+KLAWISZE
+T czat - F6 stan - F7 imiona - F10 zaproś znajomych ze Steam - F11 zmień wygląd
+Pad: menu co-op działa z padem; w grze Pauza > „Co-op” daje to, co
+klawisze F.
+
+Wspólne: świat, wytwarzanie, ogrody, zombie, przenośniki, handlarze, reputacja,
+pogoda, drzewko technologii i klejnoty. Każdy zachowuje własny ekwipunek,
+pieniądze, energię, zdrowie, wygląd, talenty i pozycję. Noc mija dopiero, gdy
+wszyscy śpią.
+Gospodarz może wybrać „Ja śpię” w „Załóż grę”; wtedy jego sen sprawia,
+że noc mija dla wszystkich.
+
+Sceny fabularne i kazania: gdy u jednego gracza zaczyna się scena, pozostali mogą ją
+obejrzeć. Oglądający zostaje tam przeniesiony, a potem wraca;
+„Przestań oglądać” kończy wcześniej. Klawisze: Y oglądaj, N graj dalej lub
+przestań; pad: Y i B (przytrzymaj B, by przestać). Przegapiona? Pauza >
+„Co-op” pokaże ją od początku, póki trwa.
+
+WALKI
+Walkę toczy jeden gracz; w jednym świecie trwa naraz tylko jedna. Gdy ktoś
+walczy, pozostali widzą, kto walczy i jak się skończyło, nie mogą zacząć
+własnej walki, a zegar stoi dla wszystkich. Nagrody spadają pod nogi
+walczącego; postęp poziomu jest wspólny.
+
+JESZCZE NIE W CO-OP
+Wspólna walka; odpowiedzi, które inny gracz wybiera w rozmowie (jego kwestie
+widać w pobliżu); pochówek i sekcja w toku (przy grobie lub stole pracuje
+naraz tylko jeden gracz). Przetestowane z dwoma do czterech graczy.
+Z jednym handlarzem handluje naraz tylko jeden gracz: dwie transakcje w tej
+samej chwili mogą obie dostać jego ostatni przedmiot.
+
+ODINSTALOWANIE
+Usuń BepInEx\plugins\GK2Coop w folderze gry. Aby usunąć też BepInEx (jeśli nie używa
+go inny mod), usuń również folder BepInEx, winhttp.dll, doorstop_config.ini,
+.doorstop_version i changelog.txt.
+Przewodniki INSTALL-GK2COOP.txt i GK2Coop-Guides też można usunąć.
+
+Ustawienia: BepInEx\config\com.fabio.gk2coop.cfg
+To wersja rozwojowa. Zrób kopię zapisów, na których ci zależy.

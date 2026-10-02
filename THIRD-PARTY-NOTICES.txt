@@ -1,0 +1,50 @@
+Third-party software in the Graveyard Keeper 2 Co-op release
+
+The release zip contains the mod loader BepInEx 5.4.23.5 and the libraries it ships with,
+unchanged. They are not part of this mod and keep their own licenses.
+
+Unity Doorstop 4.5.0 (winhttp.dll, .doorstop_version, doorstop_config.ini)
+  https://github.com/NeighTools/UnityDoorstop
+  GNU Lesser General Public License, version 2.1; the full text is in
+  third-party\UnityDoorstop-LICENSE.txt. The source code is available at the address above.
+
+BepInEx 5.4.23.5 (BepInEx\core\BepInEx.dll, BepInEx.Preloader.dll, BepInEx.Harmony.dll,
+HarmonyXInterop.dll, changelog.txt)
+  https://github.com/BepInEx/BepInEx
+  MIT License, Copyright (c) 2018 Bepis
+
+HarmonyX 2.9.0 (BepInEx\core\0Harmony.dll, 0Harmony20.dll)
+  https://github.com/BepInEx/HarmonyX
+  MIT License, Copyright (c) 2020 BepInEx
+  HarmonyX is based on Harmony, https://github.com/pardeike/Harmony,
+  MIT License, Copyright (c) 2017 Andreas Pardeike
+
+MonoMod 22.1.29.1 (BepInEx\core\MonoMod.RuntimeDetour.dll, MonoMod.Utils.dll)
+  https://github.com/MonoMod/MonoMod
+  MIT License, Copyright (c) 2015 - 2020 0x0ade
+
+Mono.Cecil 0.10.4 (BepInEx\core\Mono.Cecil.dll, Mono.Cecil.Mdb.dll, Mono.Cecil.Pdb.dll,
+Mono.Cecil.Rocks.dll)
+  https://github.com/jbevain/cecil
+  MIT License, Copyright (c) 2008 - 2015 Jb Evain, Copyright (c) 2008 - 2011 Novell, Inc.
+
+The MIT License, as it applies to each of the MIT-licensed parts above with its own copyright
+line:
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this software
+  and associated documentation files (the "Software"), to deal in the Software without
+  restriction, including without limitation the rights to use, copy, modify, merge, publish,
+  distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the
+  Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or
+  substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING
+  BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+  NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+  DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+Graveyard Keeper 2 belongs to its developers and publisher; this mod contains none of the game's
+files.

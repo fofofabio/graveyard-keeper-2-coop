@@ -1,0 +1,73 @@
+﻿Graveyard Keeper 2 Co-op - installing from the Steam Workshop
+
+Steam downloads this mod but cannot switch it on. Copy it into the game once;
+after that the mod installs its own updates when the game starts.
+
+1. Subscribe, then close the game.
+2. Open the download folder of this item:
+     <Steam library>\steamapps\workshop\content\4358690\<item id>
+   (In Steam: right-click the game > Manage > Browse local files, go up two
+   folders, then workshop\content.)
+3. Copy everything in that folder into the game folder, next to
+   GraveyardKeeper2.exe, and allow merging folders.
+4. Start the game. The main menu now has a "Co-op" button under the game's
+   own buttons.
+
+Everyone who plays together needs the mod in the same version. After Steam
+updates the item, start the game once; the main menu says when the new version
+was installed, and the next start uses it.
+
+PLAY OVER STEAM
+5. Host: in the main menu press "Co-op", then "Host a game". Choose the
+   number of players and press "Host on Steam". Load a save or start a new
+   game. In the game, press F10 to invite friends.
+6. Friends: accept the invite in Steam, or open "Co-op" > "Join a game"
+   and press "Join" next to the host. You play in a copy of the host's world;
+   your own saves are not touched.
+
+PLAY WITHOUT STEAM
+7. Host: "Host a game" > "Host without Steam" > "Host". Press
+   "Show my addresses" and give one of them to the others.
+8. Friends: "Join a game" > "Join by address", enter the address, press
+   "Join". Over the internet the host's router has to forward UDP port 8889,
+   or use a VPN such as Tailscale.
+
+KEYS
+T chat - F6 status - F7 name tags - F10 invite Steam friends - F11 change your look
+Controller: the co-op menu works with it; in a game, Pause > "Co-op" has
+what the F keys do.
+
+Shared: the world, crafting, gardens, zombies, conveyors, vendors, reputation,
+the weather, the tech tree and the gems. Each player keeps their own
+inventory, money, energy, health, look, talents and position. The night passes
+only when everyone sleeps.
+The host can choose "I sleep" under "Host a game"; then the host's sleep
+passes the night for everyone.
+
+Story scenes and sermons: when a scene starts for one player, the others are asked whether
+to watch it. Watching takes you there and back afterwards; "Stop watching"
+ends it early. Keys: Y watch, N keep playing or stop; controller: Y and B
+(hold B to stop). Missed one? Pause > "Co-op" lets you watch it from the
+start while it runs.
+
+FIGHTS
+One player fights; one fight at a time per world. While someone fights, the
+others are told who is fighting and how it ended, cannot start a fight of
+their own, and the clock stops for everyone. The rewards drop at the
+fighter's feet; the level's progress is shared.
+
+NOT YET IN CO-OP
+Fighting together; the answers another player picks in a conversation (their
+lines show nearby); burial and autopsy work in progress (one player at a time
+works a grave or table). Tested with two to four players.
+Trade with a vendor one player at a time: two deals at the same moment can
+both get its last item.
+
+UNINSTALL
+Delete BepInEx\plugins\GK2Coop in the game folder. To remove BepInEx as
+well (if no other mod uses it), also delete the BepInEx folder, winhttp.dll,
+doorstop_config.ini, .doorstop_version and changelog.txt.
+The guides INSTALL-GK2COOP.txt and GK2Coop-Guides can go too.
+
+Settings: BepInEx\config\com.fabio.gk2coop.cfg
+This is a development build. Back up saves you care about.

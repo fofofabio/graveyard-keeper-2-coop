@@ -1,0 +1,73 @@
+﻿Graveyard Keeper 2 Ortak Oyun - Steam Atölyesi'nden kurulum
+
+Steam bu modu indirir ama etkinleştiremez. Onu bir kez oyuna kopyala; sonrasında
+mod, oyun başlarken kendi güncellemelerini kendisi kurar.
+
+1. Abone ol, sonra oyunu kapat.
+2. Bu öğenin indirme klasörünü aç:
+     <Steam kütüphanesi>\steamapps\workshop\content\4358690\<öğe kimliği>
+   (Steam'de: oyuna sağ tıkla > Yönet > Yerel dosyalara göz at, iki klasör
+   yukarı çık, sonra workshop\content.)
+3. O klasördeki her şeyi oyun klasörüne, GraveyardKeeper2.exe dosyasının yanına
+   kopyala ve klasörlerin birleştirilmesine izin ver.
+4. Oyunu başlat. Ana menüde artık oyunun düğmelerinin altında bir "Ortak oyun"
+   düğmesi var.
+
+Birlikte oynayan herkesin modun aynı sürümüne ihtiyacı var. Steam öğeyi
+güncelledikten sonra oyunu bir kez başlat; ana menü yeni sürümü bildirir ve bir
+sonraki açılış onu kullanır.
+
+STEAM ÜZERİNDEN OYNAMAK
+5. Kurucu: ana menüde "Ortak oyun", sonra "Oyun kur" düğmesine bas. Oyuncu
+   sayısını seç ve "Steam'de kur" düğmesine bas. Bir kayıt yükle ya da yeni
+   oyun başlat. Oyunda F10 arkadaşlarını davet eder.
+6. Arkadaşlar: Steam'deki daveti kabul edin ya da "Ortak oyun" > "Oyuna katıl"
+   açıp kurucunun yanındaki "Katıl" düğmesine basın. Kurucunun dünyasının bir
+   kopyasında oynarsınız; kendi kayıtlarınıza dokunulmaz.
+
+STEAM OLMADAN OYNAMAK
+7. Kurucu: "Oyun kur" > "Steam olmadan kur" > "Kur". "Adreslerimi göster"
+   düğmesine bas ve birini diğerlerine ver.
+8. Arkadaşlar: "Oyuna katıl" > "Adresle katıl", adresi girin, "Katıl"
+   düğmesine basın. İnternet üzerinden kurucunun modemi UDP 8889 portunu
+   yönlendirmeli ya da Tailscale gibi bir VPN kullanın.
+
+TUŞLAR
+T sohbet - F6 durum - F7 isimler - F10 Steam arkadaşlarını davet et - F11 görünümü değiştir
+Kumanda: ortak oyun menüsü kumandayla çalışır; oyunda Duraklat > "Ortak oyun" F
+tuşlarının yaptıklarını sunar.
+
+Ortak olanlar: dünya, üretim, bahçeler, zombiler, konveyörler, tüccarlar, itibar,
+hava durumu, teknoloji ağacı ve değerli taşlar. Herkes kendi envanterini, parasını,
+enerjisini, sağlığını, görünümünü, yeteneklerini ve konumunu korur. Gece ancak
+herkes uyuyunca geçer.
+Kurucu "Oyun kur" içinde "Ben uyuyunca" seçeneğini seçebilir; o zaman
+kurucunun uykusu geceyi herkes için geçirir.
+
+Hikâye sahneleri ve vaazlar: Bir oyuncunun sahnesi başladığında diğerlerine izlemek
+isteyip istemedikleri sorulur. İzleyen oraya götürülür, sonra geri getirilir;
+"İzlemeyi bırak" erken bitirir. Tuşlar: Y izle, N devam et veya bırak;
+kumanda: Y ve B (bırakmak için B basılı tut). Kaçırdın mı? Duraklat >
+"Ortak oyun" sahne sürdükçe baştan gösterir.
+
+DÖVÜŞLER
+Bir dövüşü tek bir oyuncu yapar; her dünyada aynı anda yalnızca bir dövüş olur.
+Biri dövüşürken diğerleri kimin dövüştüğünü ve nasıl bittiğini görür, kendi
+dövüşlerini başlatamaz ve saat herkes için durur. Ödüller dövüşenin ayağının
+dibine düşer; bölümün ilerlemesi ortaktır.
+
+HENÜZ ORTAK OYUNDA YOK
+Birlikte dövüşmek; başka bir oyuncunun bir konuşmada seçtiği cevaplar (onun
+sözleri yakında görünür); süren defin ve otopsi işleri (bir mezarda veya
+masada aynı anda yalnızca bir oyuncu çalışır). İki ila dört oyuncuyla test edildi.
+Bir satıcıyla aynı anda tek oyuncu ticaret yapsın: aynı anda yapılan iki
+takas, satıcının son eşyasını ikisine de verebilir.
+
+KALDIRMA
+Oyun klasöründeki BepInEx\plugins\GK2Coop klasörünü sil. BepInEx'i de kaldırmak için
+(başka bir mod kullanmıyorsa) BepInEx klasörünü, winhttp.dll,
+doorstop_config.ini, .doorstop_version ve changelog.txt dosyalarını da sil.
+INSTALL-GK2COOP.txt ve GK2Coop-Guides kılavuzları da silinebilir.
+
+Ayarlar: BepInEx\config\com.fabio.gk2coop.cfg
+Bu bir geliştirme sürümüdür. Önemli kayıtlarını yedekle.

@@ -1,0 +1,62 @@
+﻿Graveyard Keeper 2 Koop 0.65.4
+
+INSTALLATION
+1. Alle, die zusammen spielen, brauchen diese Mod in derselben Version.
+2. Spiel schließen. Dieses Archiv in den Spielordner neben GraveyardKeeper2.exe
+   entpacken und dabei die Ordner beibehalten.
+
+ÜBER STEAM SPIELEN
+3. Host: Im Hauptmenü auf „Koop“ und dann „Spiel hosten“ drücken. Die
+   Spielerzahl wählen und „Über Steam hosten“ drücken. Einen Spielstand laden oder
+   ein neues Spiel beginnen. Im Spiel lädt F10 Freunde ein.
+4. Freunde: Die Einladung in Steam annehmen oder „Koop“ > „Spiel beitreten“
+   öffnen und neben dem Host „Beitreten“ drücken. Ihr spielt in einer Kopie der
+   Welt des Hosts; eure eigenen Spielstände bleiben unberührt.
+
+OHNE STEAM SPIELEN
+5. Host: „Spiel hosten“ > „Ohne Steam hosten“ > „Hosten“. „Meine Adressen zeigen“
+   drücken und den anderen eine davon geben.
+6. Freunde: „Spiel beitreten“ > „Über Adresse beitreten“, die Adresse eingeben,
+   „Beitreten“ drücken. Übers Internet muss der Router des Hosts den UDP-Port 8889
+   weiterleiten, oder ihr nutzt ein VPN wie Tailscale.
+
+TASTEN
+T Chat - F6 Status - F7 Namensschilder - F10 Steam-Freunde einladen - F11 Aussehen ändern
+Controller: Das Koop-Menü lässt sich damit bedienen; im Spiel bietet Pause >
+„Koop“, was die F-Tasten tun.
+
+Gemeinsam: die Welt, Herstellung, Gärten, Zombies, Förderbänder, Händler, Ruf,
+das Wetter, der Technologiebaum und die Edelsteine. Jeder behält sein eigenes
+Inventar, Geld, Energie, Gesundheit, Aussehen, Talente und seinen Ort. Die Nacht
+vergeht erst, wenn alle schlafen.
+Der Host kann unter „Spiel hosten“ „Ich schlafe“ wählen; dann lässt sein Schlaf
+die Nacht für alle vergehen.
+
+Story-Szenen und Predigten: Beginnt bei einem Spieler eine Szene, werden die anderen
+gefragt, ob sie mitschauen. Wer mitschaut, wird hingebracht und danach
+zurückgebracht; „Nicht mehr zuschauen“ beendet das vorzeitig. Tasten: Y
+mitschauen, N weiterspielen oder aufhören; Controller: Y und B (B halten zum
+Aufhören). Verpasst? Pause > „Koop“ zeigt sie von Anfang an, solange sie
+läuft.
+
+KÄMPFE
+Ein Kampf gehört einem Spieler; pro Welt läuft immer nur einer. Während jemand
+kämpft, erfahren die anderen, wer kämpft und wie es ausging, können selbst
+keinen Kampf beginnen, und die Uhr steht für alle still. Die Belohnung fällt
+dem Kämpfer vor die Füße; der Fortschritt des Kampfgebiets gilt für alle.
+
+NOCH NICHT IM KOOP
+Gemeinsam kämpfen; die Antworten, die ein anderer Spieler im Gespräch wählt
+(seine Sätze erscheinen in der Nähe); laufende Bestattungen und Autopsien (an
+einem Grab oder Tisch arbeitet immer nur einer). Mit zwei bis vier Spielern getestet.
+Mit einem Händler handelt immer nur einer: zwei Geschäfte im selben Moment
+können beide sein letztes Stück bekommen.
+
+DEINSTALLIEREN
+BepInEx\plugins\GK2Coop im Spielordner löschen. Um auch BepInEx zu entfernen (wenn
+keine andere Mod es nutzt), zusätzlich den Ordner BepInEx sowie winhttp.dll,
+doorstop_config.ini, .doorstop_version und changelog.txt löschen.
+Die Anleitungen INSTALL-GK2COOP.txt und GK2Coop-Guides können ebenfalls weg.
+
+Einstellungen: BepInEx\config\com.fabio.gk2coop.cfg
+Dies ist eine Entwicklungsversion. Sichere Spielstände, die dir wichtig sind.

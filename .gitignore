@@ -1,0 +1,11 @@
+.tools/
+research/
+references/
+artifacts/
+logs/
+test-saves/
+bin/
+obj/
+__pycache__/
+*.user
+*.pyc

@@ -1,0 +1,61 @@
+﻿Graveyard Keeper 2 Co-op 0.65.4
+
+INSTALAÇÃO
+1. Todos que jogam juntos precisam deste mod, na mesma versão.
+2. Feche o jogo. Extraia este arquivo na pasta do jogo, ao lado de
+   GraveyardKeeper2.exe, mantendo as pastas.
+
+JOGAR PELA STEAM
+3. Anfitrião: no menu principal, aperte "Co-op" e depois "Hospedar partida".
+   Escolha o número de jogadores e aperte "Hospedar na Steam". Carregue um save ou
+   comece um jogo novo. No jogo, F10 convida amigos.
+4. Amigos: aceitem o convite na Steam, ou abram "Co-op" > "Entrar em uma partida" e
+   apertem "Entrar" ao lado do anfitrião. Vocês jogam em uma cópia do mundo do
+   anfitrião; seus próprios saves não são alterados.
+
+JOGAR SEM A STEAM
+5. Anfitrião: "Hospedar partida" > "Hospedar sem a Steam" > "Hospedar". Aperte
+   "Mostrar meus endereços" e passe um deles para os outros.
+6. Amigos: "Entrar em uma partida" > "Entrar pelo endereço", digitem o endereço e apertem
+   "Entrar". Pela internet, o roteador do anfitrião precisa redirecionar a porta
+   UDP 8889, ou usem uma VPN como o Tailscale.
+
+TECLAS
+T chat - F6 status - F7 nomes - F10 convidar amigos da Steam - F11 mudar a aparência
+Controle: o menu co-op funciona com ele; no jogo, Pausa > "Co-op" oferece
+o que as teclas F fazem.
+
+Compartilhado: o mundo, a produção, as hortas, os zumbis, as esteiras, os
+vendedores, a reputação, o clima, a árvore tecnológica e as gemas. Cada
+jogador mantém seu inventário, dinheiro, energia, saúde, aparência, talentos e
+posição. A noite só passa quando todos dormem.
+O anfitrião pode escolher "Eu durmo" em "Hospedar partida"; então o sono dele
+faz a noite passar para todos.
+
+Cenas da história e sermões: quando uma cena começa para um jogador, os outros são
+perguntados se querem assistir. Você é levado até lá e trazido de volta
+depois; "Parar de assistir" encerra antes. Teclas: Y assistir, N continuar ou
+parar; controle: Y e B (segure B para parar). Perdeu? Pausa > "Co-op"
+mostra desde o início enquanto ela durar.
+
+LUTAS
+Uma luta é de um jogador só, e há uma de cada vez por mundo. Enquanto alguém
+luta, os outros veem quem está lutando e como terminou, não podem começar uma
+luta própria e o relógio fica parado para todos. As recompensas caem aos pés
+de quem lutou; o progresso da fase é compartilhado.
+
+AINDA NÃO NO CO-OP
+Lutar juntos; as respostas que outro jogador escolhe numa conversa (as falas
+dele aparecem por perto); enterro e autópsia em andamento (só um jogador por
+vez trabalha numa cova ou mesa). Testado com dois a quatro jogadores.
+Negociem com um vendedor um de cada vez: duas trocas ao mesmo tempo podem
+levar as duas o último item dele.
+
+DESINSTALAR
+Apague BepInEx\plugins\GK2Coop na pasta do jogo. Para remover também o BepInEx (se
+nenhum outro mod o usa), apague também a pasta BepInEx, winhttp.dll,
+doorstop_config.ini, .doorstop_version e changelog.txt.
+Os guias INSTALL-GK2COOP.txt e GK2Coop-Guides também podem ser apagados.
+
+Configurações: BepInEx\config\com.fabio.gk2coop.cfg
+Esta é uma versão em desenvolvimento. Faça backup dos saves que importam para você.

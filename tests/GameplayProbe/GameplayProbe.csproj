@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <GamePath Condition="'$(GamePath)' == ''">C:\Program Files (x86)\Steam\steamapps\common\Graveyard Keeper 2</GamePath>
+    <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2_Data')">GraveyardKeeper2_Data</GameDataName>
+    <GameDataName Condition="'$(GameDataName)' == '' and Exists('$(GamePath)\GraveyardKeeper2Demo_Data')">GraveyardKeeper2Demo_Data</GameDataName>
+    <BepInExPath>C:\FF\graveyard-keeper-2-coop\artifacts\bepinex-5.4.23.5</BepInExPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="BepInEx"><HintPath>$(BepInExPath)\BepInEx\core\BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GamePath)\$(GameDataName)\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GamePath)\$(GameDataName)\Managed\UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="com.rlabrecque.steamworks.net"><HintPath>$(GamePath)\$(GameDataName)\Managed\com.rlabrecque.steamworks.net.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.InputLegacyModule"><HintPath>$(GamePath)\$(GameDataName)\Managed\UnityEngine.InputLegacyModule.dll</HintPath><Private>false</Private></Reference>
+<Reference Include="UnityEngine.AudioModule"><HintPath>$(GamePath)\$(GameDataName)\Managed\UnityEngine.AudioModule.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

@@ -1,0 +1,75 @@
+﻿Graveyard Keeper 2 Coop - installation depuis le Workshop Steam
+
+Steam télécharge ce mod mais ne peut pas l'activer. Copie-le une fois dans le jeu ;
+ensuite, le mod installe lui-même ses mises à jour au lancement du jeu.
+
+1. Abonne-toi, puis ferme le jeu.
+2. Ouvre le dossier de téléchargement de cet objet :
+     <bibliothèque Steam>\steamapps\workshop\content\4358690\<id de l'objet>
+   (Dans Steam : clic droit sur le jeu > Gérer > Parcourir les fichiers locaux,
+   remonte de deux dossiers, puis workshop\content.)
+3. Copie tout le contenu de ce dossier dans le dossier du jeu, à côté de
+   GraveyardKeeper2.exe, et accepte de fusionner les dossiers.
+4. Lance le jeu. Le menu principal a maintenant un bouton « Coop » sous les
+   boutons du jeu.
+
+Tous ceux qui jouent ensemble ont besoin du mod dans la même version. Après une
+mise à jour Steam, lance le jeu une fois ; le menu principal indique la nouvelle
+version, et le lancement suivant l'utilise.
+
+JOUER VIA STEAM
+5. Hôte : dans le menu principal, appuie sur « Coop », puis « Héberger une partie ».
+   Choisis le nombre de joueurs et appuie sur « Héberger sur Steam ». Charge une
+   sauvegarde ou commence une partie. En jeu, F10 invite tes amis.
+6. Amis : acceptez l'invitation dans Steam, ou ouvrez « Coop » > « Rejoindre une partie »
+   et appuyez sur « Rejoindre » à côté de l'hôte. Vous jouez dans une copie du
+   monde de l'hôte ; vos propres sauvegardes ne sont pas touchées.
+
+JOUER SANS STEAM
+7. Hôte : « Héberger une partie » > « Héberger sans Steam » > « Héberger ». Appuie sur
+   « Afficher mes adresses » et donne l'une d'elles aux autres.
+8. Amis : « Rejoindre une partie » > « Rejoindre par adresse », entrez l'adresse, appuyez sur
+   « Rejoindre ». Par Internet, la box de l'hôte doit rediriger le port UDP 8889,
+   ou utilisez un VPN comme Tailscale.
+
+TOUCHES
+T chat - F6 statut - F7 noms - F10 inviter des amis Steam - F11 changer d'apparence
+Manette : le menu coop s'utilise avec elle ; en jeu, Pause > « Coop »
+offre ce que font les touches F.
+
+Partagé : le monde, l'artisanat, les jardins, les zombies, les convoyeurs, les
+marchands, la réputation, la météo, l'arbre technologique et les gemmes.
+Chacun garde son inventaire, son argent, son énergie, sa santé, son apparence,
+ses talents et sa position. La nuit ne passe que quand tout le monde dort.
+L'hôte peut choisir « Je dors » dans « Héberger une partie » ; son sommeil fait
+alors passer la nuit pour tous.
+
+Scènes de l'histoire et sermons : quand une scène commence pour un joueur, les autres
+peuvent la regarder. Vous êtes emmené sur place puis ramené ensuite ; «
+Arrêter de regarder » arrête plus tôt. Touches : Y regarder, N continuer ou
+arrêter ; manette : Y et B (maintenir B pour arrêter). Manquée ? Pause > «
+Coop » la montre depuis le début tant qu'elle dure.
+
+COMBATS
+Un combat appartient à un seul joueur ; un seul à la fois par monde. Pendant
+qu'un joueur combat, les autres voient qui combat et comment ça s'est terminé,
+ne peuvent pas lancer de combat eux-mêmes, et l'horloge s'arrête pour tous.
+Les récompenses tombent aux pieds du combattant ; la progression du niveau
+est partagée.
+
+PAS ENCORE EN COOP
+Combattre ensemble ; les réponses qu'un autre joueur choisit dans une
+conversation (ses répliques s'affichent à proximité) ; l'inhumation et
+l'autopsie en cours (un seul joueur à la fois travaille une tombe ou une
+table). Testé de deux à quatre joueurs.
+Un seul joueur à la fois chez un marchand : deux échanges au même moment
+peuvent obtenir tous deux son dernier article.
+
+DÉSINSTALLER
+Supprime BepInEx\plugins\GK2Coop dans le dossier du jeu. Pour retirer aussi BepInEx
+(si aucun autre mod ne l'utilise), supprime aussi le dossier BepInEx,
+winhttp.dll, doorstop_config.ini, .doorstop_version et changelog.txt.
+Les guides INSTALL-GK2COOP.txt et GK2Coop-Guides peuvent aussi être supprimés.
+
+Réglages : BepInEx\config\com.fabio.gk2coop.cfg
+Ceci est une version de développement. Sauvegarde les parties auxquelles tu tiens.

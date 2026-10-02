@@ -1,0 +1,73 @@
+﻿Graveyard Keeper 2 Cooperativo - instalación desde el Workshop de Steam
+
+Steam descarga este mod pero no puede activarlo. Cópialo una vez en el juego;
+después, el mod instala sus propias actualizaciones al iniciar el juego.
+
+1. Suscríbete y cierra el juego.
+2. Abre la carpeta de descarga de este elemento:
+     <biblioteca de Steam>\steamapps\workshop\content\4358690\<id del elemento>
+   (En Steam: clic derecho en el juego > Administrar > Ver archivos locales, sube
+   dos carpetas y luego workshop\content.)
+3. Copia todo el contenido de esa carpeta en la carpeta del juego, junto a
+   GraveyardKeeper2.exe, y acepta combinar las carpetas.
+4. Inicia el juego. El menú principal tiene ahora un botón «Cooperativo» debajo de
+   los botones del juego.
+
+Todos los que juegan juntos necesitan el mod en la misma versión. Cuando Steam
+actualice el elemento, inicia el juego una vez; el menú principal avisa de la
+nueva versión y el siguiente inicio la usa.
+
+JUGAR POR STEAM
+5. Anfitrión: en el menú principal pulsa «Cooperativo» y luego «Crear partida». Elige
+   el número de jugadores y pulsa «Crear en Steam». Carga una partida o empieza
+   una nueva. En el juego, F10 invita a tus amigos.
+6. Amigos: aceptad la invitación en Steam, o abrid «Cooperativo» > «Unirse a una partida» y
+   pulsad «Unirse» junto al anfitrión. Jugáis en una copia del mundo del
+   anfitrión; vuestras partidas guardadas no se tocan.
+
+JUGAR SIN STEAM
+7. Anfitrión: «Crear partida» > «Crear sin Steam» > «Crear». Pulsa
+   «Mostrar mis direcciones» y pasa una de ellas a los demás.
+8. Amigos: «Unirse a una partida» > «Unirse por dirección», escribid la dirección y pulsad
+   «Unirse». Por internet, el router del anfitrión debe redirigir el puerto UDP
+   8889, o usad una VPN como Tailscale.
+
+TECLAS
+T chat - F6 estado - F7 nombres - F10 invitar amigos de Steam - F11 cambiar tu aspecto
+Mando: el menú cooperativo funciona con él; en la partida, Pausa > «Cooperativo»
+ofrece lo que hacen las teclas F.
+
+Compartido: el mundo, la fabricación, los huertos, los zombis, las cintas, los
+comerciantes, la reputación, el tiempo, el árbol tecnológico y las gemas.
+Cada jugador conserva su inventario, dinero, energía, salud, aspecto, talentos y
+posición. La noche solo pasa cuando todos duermen.
+El anfitrión puede elegir «Yo duermo» en «Crear partida»; entonces su sueño
+hace pasar la noche para todos.
+
+Escenas de la historia y sermones: cuando empieza una escena para un jugador, se pregunta
+a los demás si quieren verla. Te lleva allí y luego te devuelve;
+«Dejar de ver» la termina antes. Teclas: Y ver, N seguir jugando o parar;
+mando: Y y B (mantén B para parar). ¿Te la perdiste? Pausa > «Cooperativo» la
+muestra desde el principio mientras dure.
+
+COMBATES
+Un combate es de un solo jugador, y solo hay uno a la vez por mundo. Mientras
+alguien combate, los demás ven quién combate y cómo terminó, no pueden empezar
+un combate propio y el reloj se detiene para todos. Las recompensas caen a los
+pies de quien combate; el progreso del nivel es compartido.
+
+AÚN NO EN COOPERATIVO
+Combatir juntos; las respuestas que otro jugador elige en una conversación
+(sus frases se ven cerca); el entierro y la autopsia en curso (solo un jugador
+a la vez trabaja una tumba o una mesa). Probado con dos a cuatro jugadores.
+Comerciad con un vendedor de uno en uno: dos tratos al mismo tiempo pueden
+llevarse ambos su último artículo.
+
+DESINSTALAR
+Borra BepInEx\plugins\GK2Coop en la carpeta del juego. Para quitar también BepInEx
+(si ningún otro mod lo usa), borra además la carpeta BepInEx, winhttp.dll,
+doorstop_config.ini, .doorstop_version y changelog.txt.
+Las guías INSTALL-GK2COOP.txt y GK2Coop-Guides también se pueden borrar.
+
+Ajustes: BepInEx\config\com.fabio.gk2coop.cfg
+Esta es una versión en desarrollo. Haz copia de las partidas que te importen.
