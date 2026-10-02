@@ -21,6 +21,8 @@ PLAY OVER STEAM
 3. Host: in the main menu press "{B:Co-op}", then "{B:Host a game}". Choose the
    number of players and press "{B:Host on Steam}". Load a save or start a new
    game. In the game, press F10 to invite friends.
+   In a new game, sleep one time first: friends can join only after the first
+   save.
 4. Friends: accept the invite in Steam, or open "{B:Co-op}" > "{B:Join a game}"
    and press "{B:Join}" next to the host. You play in a copy of the host's world;
    your own saves are not touched.
@@ -107,6 +109,8 @@ INSTALLATION
 3. Host: Im Hauptmenü auf „{B:Co-op}“ und dann „{B:Host a game}“ drücken. Die
    Spielerzahl wählen und „{B:Host on Steam}“ drücken. Einen Spielstand laden oder
    ein neues Spiel beginnen. Im Spiel lädt F10 Freunde ein.
+   In einem neuen Spiel zuerst einmal schlafen: Freunde können erst nach dem
+   ersten Speichern beitreten.
 4. Freunde: Die Einladung in Steam annehmen oder „{B:Co-op}“ > „{B:Join a game}“
    öffnen und neben dem Host „{B:Join}“ drücken. Ihr spielt in einer Kopie der
    Welt des Hosts; eure eigenen Spielstände bleiben unberührt.
@@ -194,6 +198,8 @@ JOUER VIA STEAM
 3. Hôte : dans le menu principal, appuie sur « {B:Co-op} », puis « {B:Host a game} ».
    Choisis le nombre de joueurs et appuie sur « {B:Host on Steam} ». Charge une
    sauvegarde ou commence une partie. En jeu, F10 invite tes amis.
+   Dans une nouvelle partie, dors d'abord une fois : tes amis ne peuvent
+   rejoindre qu'après la première sauvegarde.
 4. Amis : acceptez l'invitation dans Steam, ou ouvrez « {B:Co-op} » > « {B:Join a game} »
    et appuyez sur « {B:Join} » à côté de l'hôte. Vous jouez dans une copie du
    monde de l'hôte ; vos propres sauvegardes ne sont pas touchées.
@@ -282,6 +288,8 @@ JUGAR POR STEAM
 3. Anfitrión: en el menú principal pulsa «{B:Co-op}» y luego «{B:Host a game}». Elige
    el número de jugadores y pulsa «{B:Host on Steam}». Carga una partida o empieza
    una nueva. En el juego, F10 invita a tus amigos.
+   En una partida nueva, duerme primero una vez: tus amigos solo pueden unirse
+   después del primer guardado.
 4. Amigos: aceptad la invitación en Steam, o abrid «{B:Co-op}» > «{B:Join a game}» y
    pulsad «{B:Join}» junto al anfitrión. Jugáis en una copia del mundo del
    anfitrión; vuestras partidas guardadas no se tocan.
@@ -368,6 +376,8 @@ JOGAR PELA STEAM
 3. Anfitrião: no menu principal, aperte "{B:Co-op}" e depois "{B:Host a game}".
    Escolha o número de jogadores e aperte "{B:Host on Steam}". Carregue um save ou
    comece um jogo novo. No jogo, F10 convida amigos.
+   Num jogo novo, durma uma vez antes: os amigos só podem entrar depois do
+   primeiro salvamento.
 4. Amigos: aceitem o convite na Steam, ou abram "{B:Co-op}" > "{B:Join a game}" e
    apertem "{B:Join}" ao lado do anfitrião. Vocês jogam em uma cópia do mundo do
    anfitrião; seus próprios saves não são alterados.
@@ -454,6 +464,8 @@ GRA PRZEZ STEAM
 3. Gospodarz: w menu głównym naciśnij „{B:Co-op}”, a potem „{B:Host a game}”. Wybierz
    liczbę graczy i naciśnij „{B:Host on Steam}”. Wczytaj zapis albo zacznij nową
    grę. W grze F10 zaprasza znajomych.
+   W nowej grze najpierw prześpij się raz: znajomi mogą dołączyć dopiero po
+   pierwszym zapisie.
 4. Znajomi: przyjmijcie zaproszenie na Steamie albo otwórzcie „{B:Co-op}” >
    „{B:Join a game}” i naciśnijcie „{B:Join}” obok gospodarza. Gracie w kopii świata
    gospodarza; wasze własne zapisy pozostają nietknięte.
@@ -539,6 +551,8 @@ INSTALL['ru'] = """Graveyard Keeper 2 Кооператив {VERSION}
 3. Хост: в главном меню нажми «{B:Co-op}», затем «{B:Host a game}». Выбери число
    игроков и нажми «{B:Host on Steam}». Загрузи сохранение или начни новую игру.
    В игре F10 приглашает друзей.
+   В новой игре сначала поспите один раз: друзья могут присоединиться только
+   после первого сохранения.
 4. Друзья: примите приглашение в Steam или откройте «{B:Co-op}» > «{B:Join a game}»
    и нажмите «{B:Join}» рядом с хостом. Вы играете в копии мира хоста; ваши
    собственные сохранения не затрагиваются.
@@ -623,6 +637,8 @@ STEAM ÜZERİNDEN OYNAMAK
 3. Kurucu: ana menüde "{B:Co-op}", sonra "{B:Host a game}" düğmesine bas. Oyuncu
    sayısını seç ve "{B:Host on Steam}" düğmesine bas. Bir kayıt yükle ya da yeni
    oyun başlat. Oyunda F10 arkadaşlarını davet eder.
+   Yeni bir oyunda önce bir kez uyu: arkadaşların ancak ilk kayıttan sonra
+   katılabilir.
 4. Arkadaşlar: Steam'deki daveti kabul edin ya da "{B:Co-op}" > "{B:Join a game}"
    açıp kurucunun yanındaki "{B:Join}" düğmesine basın. Kurucunun dünyasının bir
    kopyasında oynarsınız; kendi kayıtlarınıza dokunulmaz.
@@ -709,6 +725,7 @@ Steamで遊ぶ
 3. ホスト：メインメニューで「{B:Co-op}」→「{B:Host a game}」を押します。人数を
    選んで「{B:Host on Steam}」を押し、セーブデータをロードするか新しいゲームを
    始めます。ゲーム中は F10 でフレンドを招待できます。
+   新しいゲームでは、まず一度眠ってください。最初のセーブの後でのみフレンドが参加できます。
 4. フレンド：Steamで招待を受けるか、「{B:Co-op}」→「{B:Join a game}」を開いて
    ホストの横の「{B:Join}」を押します。ホストの世界のコピーで遊ぶので、
    自分のセーブデータはそのままです。
@@ -790,6 +807,7 @@ INSTALL['zh_cn'] = """Graveyard Keeper 2 联机合作 {VERSION}
 通过 Steam 游玩
 3. 房主：在主菜单按“{B:Co-op}”，再按“{B:Host a game}”。选择人数后按
    “{B:Host on Steam}”。载入存档或开始新游戏。在游戏中按 F10 邀请好友。
+   新游戏中请先睡一觉：只有在第一次存档之后，好友才能加入。
 4. 好友：在 Steam 中接受邀请，或打开“{B:Co-op}”>“{B:Join a game}”，在房主旁边按
    “{B:Join}”。你们会在房主世界的副本中游玩，自己的存档不会被改动。
 
@@ -867,6 +885,7 @@ Steam으로 플레이
 3. 호스트: 메인 메뉴에서 "{B:Co-op}", 이어서 "{B:Host a game}" 버튼을 누릅니다. 인원을
    고르고 "{B:Host on Steam}" 버튼을 누른 뒤 저장 파일을 불러오거나 새 게임을
    시작합니다. 게임 중에는 F10으로 친구를 초대합니다.
+   새 게임에서는 먼저 한 번 잠을 자세요. 첫 저장 이후에만 친구가 참여할 수 있습니다.
 4. 친구: Steam에서 초대를 수락하거나 "{B:Co-op}" > "{B:Join a game}" 메뉴를 열고 호스트
    옆의 "{B:Join}" 버튼을 누릅니다. 호스트 세계의 사본에서 플레이하므로 내 저장
    파일은 그대로입니다.

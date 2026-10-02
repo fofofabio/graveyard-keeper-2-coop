@@ -9,6 +9,8 @@ JUGAR POR STEAM
 3. Anfitrión: en el menú principal pulsa «Cooperativo» y luego «Crear partida». Elige
    el número de jugadores y pulsa «Crear en Steam». Carga una partida o empieza
    una nueva. En el juego, F10 invita a tus amigos.
+   En una partida nueva, duerme primero una vez: tus amigos solo pueden unirse
+   después del primer guardado.
 4. Amigos: aceptad la invitación en Steam, o abrid «Cooperativo» > «Unirse a una partida» y
    pulsad «Unirse» junto al anfitrión. Jugáis en una copia del mundo del
    anfitrión; vuestras partidas guardadas no se tocan.

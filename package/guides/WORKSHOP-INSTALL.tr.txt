@@ -21,6 +21,8 @@ STEAM ÜZERİNDEN OYNAMAK
 5. Kurucu: ana menüde "Ortak oyun", sonra "Oyun kur" düğmesine bas. Oyuncu
    sayısını seç ve "Steam'de kur" düğmesine bas. Bir kayıt yükle ya da yeni
    oyun başlat. Oyunda F10 arkadaşlarını davet eder.
+   Yeni bir oyunda önce bir kez uyu: arkadaşların ancak ilk kayıttan sonra
+   katılabilir.
 6. Arkadaşlar: Steam'deki daveti kabul edin ya da "Ortak oyun" > "Oyuna katıl"
    açıp kurucunun yanındaki "Katıl" düğmesine basın. Kurucunun dünyasının bir
    kopyasında oynarsınız; kendi kayıtlarınıza dokunulmaz.

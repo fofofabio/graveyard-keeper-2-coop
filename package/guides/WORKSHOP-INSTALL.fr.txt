@@ -21,6 +21,8 @@ JOUER VIA STEAM
 5. Hôte : dans le menu principal, appuie sur « Coop », puis « Héberger une partie ».
    Choisis le nombre de joueurs et appuie sur « Héberger sur Steam ». Charge une
    sauvegarde ou commence une partie. En jeu, F10 invite tes amis.
+   Dans une nouvelle partie, dors d'abord une fois : tes amis ne peuvent
+   rejoindre qu'après la première sauvegarde.
 6. Amis : acceptez l'invitation dans Steam, ou ouvrez « Coop » > « Rejoindre une partie »
    et appuyez sur « Rejoindre » à côté de l'hôte. Vous jouez dans une copie du
    monde de l'hôte ; vos propres sauvegardes ne sont pas touchées.

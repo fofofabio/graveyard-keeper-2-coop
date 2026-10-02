@@ -21,6 +21,8 @@ JOGAR PELA STEAM
 5. Anfitrião: no menu principal, aperte "Co-op" e depois "Hospedar partida".
    Escolha o número de jogadores e aperte "Hospedar na Steam". Carregue um save ou
    comece um jogo novo. No jogo, F10 convida amigos.
+   Num jogo novo, durma uma vez antes: os amigos só podem entrar depois do
+   primeiro salvamento.
 6. Amigos: aceitem o convite na Steam, ou abram "Co-op" > "Entrar em uma partida" e
    apertem "Entrar" ao lado do anfitrião. Vocês jogam em uma cópia do mundo do
    anfitrião; seus próprios saves não são alterados.

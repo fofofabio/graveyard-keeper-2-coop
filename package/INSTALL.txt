@@ -9,6 +9,8 @@ PLAY OVER STEAM
 3. Host: in the main menu press "Co-op", then "Host a game". Choose the
    number of players and press "Host on Steam". Load a save or start a new
    game. In the game, press F10 to invite friends.
+   In a new game, sleep one time first: friends can join only after the first
+   save.
 4. Friends: accept the invite in Steam, or open "Co-op" > "Join a game"
    and press "Join" next to the host. You play in a copy of the host's world;
    your own saves are not touched.

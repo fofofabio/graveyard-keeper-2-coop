@@ -9,6 +9,8 @@ INSTALLATION
 3. Host: Im Hauptmenü auf „Koop“ und dann „Spiel hosten“ drücken. Die
    Spielerzahl wählen und „Über Steam hosten“ drücken. Einen Spielstand laden oder
    ein neues Spiel beginnen. Im Spiel lädt F10 Freunde ein.
+   In einem neuen Spiel zuerst einmal schlafen: Freunde können erst nach dem
+   ersten Speichern beitreten.
 4. Freunde: Die Einladung in Steam annehmen oder „Koop“ > „Spiel beitreten“
    öffnen und neben dem Host „Beitreten“ drücken. Ihr spielt in einer Kopie der
    Welt des Hosts; eure eigenen Spielstände bleiben unberührt.

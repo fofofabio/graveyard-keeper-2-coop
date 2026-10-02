@@ -9,6 +9,8 @@ GRA PRZEZ STEAM
 3. Gospodarz: w menu głównym naciśnij „Co-op”, a potem „Załóż grę”. Wybierz
    liczbę graczy i naciśnij „Załóż przez Steam”. Wczytaj zapis albo zacznij nową
    grę. W grze F10 zaprasza znajomych.
+   W nowej grze najpierw prześpij się raz: znajomi mogą dołączyć dopiero po
+   pierwszym zapisie.
 4. Znajomi: przyjmijcie zaproszenie na Steamie albo otwórzcie „Co-op” >
    „Dołącz do gry” i naciśnijcie „Dołącz” obok gospodarza. Gracie w kopii świata
    gospodarza; wasze własne zapisy pozostają nietknięte.
