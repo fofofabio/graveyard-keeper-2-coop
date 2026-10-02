@@ -37,8 +37,10 @@ Get-ChildItem -LiteralPath (Join-Path $projectRoot 'package\guides') -Filter 'WO
 # The Workshop creator takes the item's preview picture from Thumbnail.png/.jpg in the folder
 # (and leaves it out of the content). Without one it makes an empty black Thumbnail.png and
 # uploads that, so the folder must carry the real one. It looks for .png first.
-$preview = Join-Path $projectRoot 'release\media\preview.jpg'
-if (-not (Test-Path -LiteralPath $preview)) { throw "No Workshop preview picture at $preview" }
+# media\workshop-preview.jpg in the public repository, release\media\preview.jpg in the working copy.
+$preview = @('media\workshop-preview.jpg', 'release\media\preview.jpg') | ForEach-Object { Join-Path $projectRoot $_ } |
+    Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+if (-not $preview) { throw 'No Workshop preview picture (media\workshop-preview.jpg or release\media\preview.jpg).' }
 if ((Get-Item -LiteralPath $preview).Length -ge 1MB) { throw "The Workshop preview must be under 1 MB: $preview" }
 Copy-Item -LiteralPath $preview -Destination (Join-Path $resolved 'Thumbnail.jpg')
 
