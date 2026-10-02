@@ -1,5 +1,7 @@
 # Graveyard Keeper 2 Co-op [BETA]
 
+![Four players in one world: the graveyard, story scenes, sermons, chat, fights and the Co-op menu](media/highlights.gif)
+
 This mod adds co-op play to Graveyard Keeper 2 (Windows, Steam). Two to four players play in the
 same world. This world is the world of the host.
 
