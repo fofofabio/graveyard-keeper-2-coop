@@ -1,15 +1,17 @@
-﻿---
+---
 name: Problem report
-about: Something went wrong while playing together
+about: Tell us about a problem in a co-op game
 ---
 
-**Mod version** (shown in the Co-op menu):
+**Version of the mod** (the Co-op menu shows it):
 
-**How many players, and how you connected** (Steam / by address):
+**Number of players and type of connection** (Steam or address):
 
-**What you were doing, and what happened:**
+**What you did:**
+
+**What occurred:**
 
 **What you expected:**
 
-**Logs:** please attach `BepInEx\LogOutput.log` from the game folder of **each** player's game,
-copied right after the session (it is replaced at every start).
+**Log files:** Attach the file `BepInEx\LogOutput.log` from the game folder of each player.
+Copy each file immediately after the session. The game replaces the file when it starts.
