@@ -9,6 +9,9 @@ This version is a beta version. Please [report problems](../../issues).
 
 > **CAUTION:** Make a backup of your saves before you use this mod.
 
+> **NOTE:** Your friends can join only after your first sleep in the game. When you sleep for the
+> first time, the game makes its first save. The mod copies the world of the host from this save.
+
 ## Install the mod
 
 1. Close the game.
@@ -30,7 +33,8 @@ folder `GK2Coop-Guides`.
 2. Select the number of players (2, 3 or 4).
 3. Select **Host on Steam**.
 4. Load a save, or start a new game.
-5. Push **F10** to invite your Steam friends.
+5. In a new game, sleep one time. Then the game has its first save.
+6. Push **F10** to invite your Steam friends.
 
 ## Join a game
 
@@ -89,6 +93,7 @@ All players share the progress of the fight level.
 
 ## Limits of this version
 
+- Your friends can join only after the first save of the game (the first sleep).
 - Players cannot fight together.
 - Players cannot watch the fight of a different player.
 - The mod does not show the answers that a different player selects in a conversation. You can
