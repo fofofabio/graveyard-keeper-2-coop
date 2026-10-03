@@ -234,6 +234,9 @@ namespace GK2Coop
             {
                 open = false;
             }
+            // As on the main menu's Co-op window: a player reporting a problem looks for it here.
+            panel.Space(6f);
+            panel.Label(L.F("Version {0}", Plugin.Version), GameUi.TextKind.Hint);
             panel.End();
             if (panel.CloseClicked() || panel.BackPressed())
             {

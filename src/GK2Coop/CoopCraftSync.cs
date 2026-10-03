@@ -830,10 +830,48 @@ namespace GK2Coop
                 return;
             }
             nextBroadcast = Time.unscaledTime + 1f;
+            if (broadcastQueue.Count > 0)
+            {
+                return;
+            }
             try
             {
                 foreach (KeyValuePair<string, object> station in SharedStations())
                 {
+                    broadcastQueue.Enqueue(station);
+                }
+            }
+            catch (Exception ex)
+            {
+                broadcastQueue.Clear();
+                log.LogWarning("Craft sync: station broadcast failed: " + Inner(ex).Message);
+            }
+        }
+
+        // The stations to compare and send, queued once a second and worked through over the next
+        // frames: serializing them all in one frame took 4 ms a second on average with three
+        // joiners, up to 29 ms on a busy PC.
+        private static readonly Queue<KeyValuePair<string, object>> broadcastQueue = new Queue<KeyValuePair<string, object>>();
+        private static readonly long PumpBudget = System.Diagnostics.Stopwatch.Frequency / 1000;
+
+        /// <summary>From the plugin's Update: about a millisecond of the queued stations each frame.</summary>
+        internal static void Pump()
+        {
+            if (broadcastQueue.Count == 0)
+            {
+                return;
+            }
+            if (!Enabled || !IsHostWithClients())
+            {
+                broadcastQueue.Clear();
+                return;
+            }
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            try
+            {
+                do
+                {
+                    KeyValuePair<string, object> station = broadcastQueue.Dequeue();
                     byte[] raw = Serialize(station.Value);
                     if (!lastSent.TryGetValue(station.Key, out byte[] previous) || !SameBytes(previous, raw))
                     {
@@ -847,9 +885,11 @@ namespace GK2Coop
                         SendInventory(NetworkManager.Singleton, null, station.Key, inventoryRaw);
                     }
                 }
+                while (broadcastQueue.Count > 0 && System.Diagnostics.Stopwatch.GetTimestamp() - start < PumpBudget);
             }
             catch (Exception ex)
             {
+                broadcastQueue.Clear();
                 log.LogWarning("Craft sync: station broadcast failed: " + Inner(ex).Message);
             }
         }

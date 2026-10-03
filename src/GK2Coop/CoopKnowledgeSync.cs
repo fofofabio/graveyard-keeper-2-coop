@@ -45,7 +45,15 @@ namespace GK2Coop
             new KeyValuePair<string, string>("unlockedTalentIds", "UnlockTalentBranch"),
             new KeyValuePair<string, string>("unlockedVendorsForOrders", "UnlockVendorForOrders"),
             new KeyValuePair<string, string>("unlockedOrgans", "UnlockOrgan"),
+            new KeyValuePair<string, string>("knownMapZones", null),
+            // The game keeps the opposite, the locked tabs (a new game locks them, the intro's
+            // scripts unlock them); shared as what is unlocked, so it only grows like the rest.
+            new KeyValuePair<string, string>(UnlockedCharTabs, null),
+            new KeyValuePair<string, string>(UnlockedTechTabs, null),
         };
+
+        private const string UnlockedCharTabs = "unlockedCharTabs";
+        private const string UnlockedTechTabs = "unlockedTechTabs";
 
         private static ManualLogSource log;
         private static readonly Dictionary<string, HashSet<string>> seen = new Dictionary<string, HashSet<string>>();
@@ -269,6 +277,12 @@ namespace GK2Coop
                     {
                         UnlockTech(knowledge, entry.Value);
                     }
+                    else if (entry.Key == UnlockedCharTabs || entry.Key == UnlockedTechTabs)
+                    {
+                        UnlockTab((KnowledgeSystem)knowledge, entry.Key, entry.Value);
+                        learned++;
+                        continue;
+                    }
                     else if (entry.Key == "unlockedOrgans")
                     {
                         Type itemType = Plugin.FindGameType("ItemType");
@@ -342,8 +356,54 @@ namespace GK2Coop
             return set;
         }
 
+        /// <summary>A tab the other player has: the game's own unlock (it takes it off the locked list).</summary>
+        private static void UnlockTab(KnowledgeSystem knowledge, string field, string value)
+        {
+            if (field == UnlockedCharTabs)
+            {
+                knowledge.UnlockCharTab((CharacterWindowData.CharPage)Enum.Parse(typeof(CharacterWindowData.CharPage), value));
+            }
+            else
+            {
+                knowledge.UnlockTechTab((TechTreeTab)Enum.Parse(typeof(TechTreeTab), value));
+            }
+        }
+
+        /// <summary>The tabs of the character window, or of the tech tree, that are not locked.</summary>
+        private static IEnumerable<string> UnlockedTabs(KnowledgeSystem knowledge, string field)
+        {
+            if (field == UnlockedCharTabs)
+            {
+                foreach (CharacterWindowData.CharPage page in Enum.GetValues(typeof(CharacterWindowData.CharPage)))
+                {
+                    if (page != CharacterWindowData.CharPage.Undefined && !knowledge.IsCharTabLocked(page))
+                    {
+                        yield return page.ToString();
+                    }
+                }
+            }
+            else
+            {
+                foreach (TechTreeTab tab in Enum.GetValues(typeof(TechTreeTab)))
+                {
+                    if (!knowledge.IsTechTabLocked(tab))
+                    {
+                        yield return tab.ToString();
+                    }
+                }
+            }
+        }
+
         private static IEnumerable<string> Read(object knowledge, string field)
         {
+            if ((field == UnlockedCharTabs || field == UnlockedTechTabs) && knowledge is KnowledgeSystem system)
+            {
+                foreach (string tab in UnlockedTabs(system, field))
+                {
+                    yield return tab;
+                }
+                yield break;
+            }
             if (CoopDiagnostics.GetMember(knowledge, field) is IEnumerable values)
             {
                 foreach (object value in values)

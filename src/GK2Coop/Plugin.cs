@@ -21,7 +21,7 @@ namespace GK2Coop
     {
         public const string Id = "com.fabio.gk2coop";
         public const string Name = "Graveyard Keeper 2 Co-op Prototype";
-        public const string Version = "0.65.5";
+        public const string Version = "0.65.6";
 
         private ConfigEntry<KeyCode> overlayKey;
         private ConfigEntry<string> defaultAddress;
@@ -565,6 +565,7 @@ namespace GK2Coop
                 }
             }
             CoopZombieSync.Tick();
+            CoopCraftSync.Pump();
             CoopChat.Update(IsOnMainMenu);
             try
             {

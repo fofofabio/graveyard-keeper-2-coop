@@ -31,6 +31,8 @@ def row(english, fr, es, pt, pl, ru, tr, ja, zh, ko):
 # ---------------------------------------------------------------- main menu and the co-op window
 row("Co-op",
     "Coop", "Cooperativo", "Co-op", "Co-op", "Кооператив", "Ortak oyun", "協力プレイ", "联机合作", "협동")
+row("Version {0}",
+    "Version {0}", "Versión {0}", "Versão {0}", "Wersja {0}", "Версия {0}", "Sürüm {0}", "バージョン {0}", "版本 {0}", "버전 {0}")
 row("Play in one world together. One player hosts, the others join.",
     "Jouez ensemble dans un seul monde. L'un héberge, les autres rejoignent.",
     "Jugad juntos en un mismo mundo. Uno crea la partida y los demás se unen.",

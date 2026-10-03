@@ -120,6 +120,9 @@ param(
     # and perf.txt. -PerfSolo: the host alone, no joiner started; -PerfNoHosting with it: the mod
     # loaded but no co-op; -PerfVanilla with it: the game without the mod (only the test save
     # folder). Three or four players: -ThirdPath and -FourthPath.
+    # Issue #1: a joiner whose world copy has the character window's tabs locked gets them from
+    # the host; the in-game Co-op page shows the version.
+    [switch]$TabsExperiment,
     [int]$PerfMinutes = 0,
     [string]$PerfPhases = 'idle,walk,busy,yard',
     [switch]$PerfSolo,
@@ -972,6 +975,14 @@ try {
             $size = [int](((Line Client 'capacity' 'CAPACITY') -split ' ')[1])
             $bagJoiner = @(((Probe Client 'pinv') -split "`n") | Where-Object { $_ -like 'PINV inventory *' }).Count
             Add-Content -LiteralPath $mixLog -Value ("joiner bag: size=$size stacks=$bagJoiner; host's copy: $(Line Host "record-bag|$jid" 'RECORD-BAG')")
+            # Berries the joiner still holds from earlier steps would take the new ones on their own
+            # stack, full bag or not: they go into the chest first (2 October and 3 October: +5).
+            $held = Own Client 'berry'
+            if ($held -gt 0) {
+                Add-Content -LiteralPath $mixLog -Value ("joiner's berries into the chest first: " + (Line Client "move-to-chest|$chest|berry|$held" 'MOVED'))
+                Start-Sleep -Seconds 2
+                $bagJoiner = @(((Probe Client 'pinv') -split "`n") | Where-Object { $_ -like 'PINV inventory *' }).Count
+            }
             # A bag full as a player's is: every slot taken (a stick in its one slot), so berries do not fit.
             if ($bagJoiner -eq 0) {
                 $stick = ((Line Host 'spawn|stick|1' 'SPAWN') -split ' ')[1]
@@ -1770,6 +1781,29 @@ try {
         [IO.File]::WriteAllText((Join-Path $OutputPath 'bindings.txt'), (Probe Client 'bindings'))
         [IO.File]::WriteAllText((Join-Path $OutputPath 'pad-bindings.txt'), (Probe Client 'pad-bindings'))
         Check (Test-Path (Join-Path $OutputPath 'bindings.txt')) 'Bindings written'
+    }
+    if ($TabsExperiment) {
+        function Line([string]$Peer, [string]$Command, [string]$Prefix) { (((Probe $Peer $Command) -split "`n") | Where-Object { $_ -like "$Prefix *" }) -join '' }
+        $tabsLog = New-Object System.Collections.Generic.List[string]
+        $joinerId = [regex]::Match((Probe Host 'players'), 'PLAYER id=(\d+) client').Groups[1].Value
+        $tabsLog.Add("host: " + (Line Host 'tabs' 'TABS'))
+        # As in a copy of a save made before the host's intro unlocked them (the reported case).
+        $locked = Line Client 'tabs|lock|TechTree,Map|Farming' 'TABS'
+        $tabsLog.Add("joiner locked: $locked")
+        Check ($locked -match 'locked=\[[^\]]*TechTree' -and $locked -match 'locked=\[[^\]]*Map' -and $locked -match 'techLocked=\[[^\]]*Farming') "The joiner's tabs are locked, as in an older copy of the world ($locked)"
+        $tabsLog.Add((Line Host "knowledge-send-all|$joinerId" 'KNOWLEDGE-SEND-ALL'))
+        $deadline = (Get-Date).AddSeconds(15)
+        do { Start-Sleep -Seconds 1; $after = Line Client 'tabs' 'TABS' } while ((Get-Date) -lt $deadline -and $after -match 'TechTree|Map|Farming')
+        $tabsLog.Add("joiner after: $after")
+        Check ($after -notmatch 'TechTree|Map|Farming') "The host's knowledge unlocks the joiner's Tech Tree, Map and the tech tree's Farming tab ($after)"
+        Probe Client 'close-windows' | Out-Null
+        Probe Client 'pause-coop|click|entry' | Out-Null
+        Start-Sleep -Seconds 2
+        $page = Line Client 'pause-coop' 'PAUSE-COOP'
+        $tabsLog.Add("co-op page: $page")
+        Probe Client 'close-windows' | Out-Null
+        [IO.File]::WriteAllText((Join-Path $OutputPath 'tabs.txt'), ($tabsLog -join "`n"))
+        Check ($page -match 'open=True' -and $page -match 'Version \d+\.\d+\.\d+') "The in-game Co-op page shows the mod's version ($page)"
     }
     if ($PerfMinutes -gt 0) {
         # Performance with two, three or four players. The extra joiners come from the main menu,

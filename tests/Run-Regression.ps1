@@ -77,6 +77,7 @@ $runs = @(
     Run 'speech' @{ SpeechExperiment = $true } @('CoopSpeechShare', 'CoopHud') 1.9
     Run 'sermon' @{ SceneShareExperiment = $true; ShareScene = 'System_Pray:sermon_start' } $sceneFiles 2.5
     Run 'worklock' @{ WorkLockExperiment = $true } @('CoopWorkLock') 1.6
+    Run 'tabs' @{ TabsExperiment = $true } @('CoopKnowledgeSync', 'CoopPauseEntry') 1.5
     Run 'fightwatch' @{ FightWatchExperiment = $true } @('CoopFightWatch') 2
     Run 'fightbuild' @{ FightBuildExperiment = $true } @('CoopBuildSync') 1.8
     Run 'fightlock' @{ FightLockExperiment = $true } @('CoopFightLock', 'CoopSession') 3

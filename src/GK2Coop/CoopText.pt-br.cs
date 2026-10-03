@@ -10,6 +10,7 @@ namespace GK2Coop
             tables["pt-br"] = new Dictionary<string, string>
             {
                 ["Co-op"] = "Co-op",
+                ["Version {0}"] = "Versão {0}",
                 ["Play in one world together. One player hosts, the others join."] = "Joguem juntos no mesmo mundo. Um hospeda, os outros entram.",
                 ["Host a game"] = "Hospedar partida",
                 ["Join a game"] = "Entrar em uma partida",

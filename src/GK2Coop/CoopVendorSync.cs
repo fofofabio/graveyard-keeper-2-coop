@@ -138,9 +138,18 @@ namespace GK2Coop
                 {
                     return;
                 }
-                nextCheck = Time.unscaledTime + 5f;
+                // Every vendor once in 5 seconds, a fifth of them each second: a big vendor's
+                // state takes milliseconds to serialize, and all at once made a long frame.
+                nextCheck = Time.unscaledTime + 1f;
+                int slice = checkSlice;
+                checkSlice = (checkSlice + 1) % 5;
+                int index = -1;
                 foreach (object vendor in Vendors())
                 {
+                    if (++index % 5 != slice)
+                    {
+                        continue;
+                    }
                     string id = Convert.ToString(CoopDiagnostics.GetMember(vendor, "id"));
                     byte[] raw = Serialize(vendor);
                     if (lastSeen.TryGetValue(id, out byte[] previous) && Same(previous, raw))
@@ -280,9 +289,19 @@ namespace GK2Coop
             }
         }
 
+        private static int checkSlice;
+        // The serializer for each vendor type, made once.
+        private static readonly Dictionary<Type, MethodInfo> serializeFor = new Dictionary<Type, MethodInfo>();
+
         private static byte[] Serialize(object value)
         {
-            return (byte[])SerializerMethod("Serialize").MakeGenericMethod(value.GetType()).Invoke(null, new[] { value });
+            Type type = value.GetType();
+            if (!serializeFor.TryGetValue(type, out MethodInfo serialize))
+            {
+                serialize = SerializerMethod("Serialize").MakeGenericMethod(type);
+                serializeFor[type] = serialize;
+            }
+            return (byte[])serialize.Invoke(null, new[] { value });
         }
 
         private static MethodInfo SerializerMethod(string name)

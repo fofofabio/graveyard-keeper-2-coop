@@ -605,6 +605,29 @@ public sealed class GameplayProbe : BaseUnityPlugin
                    "; monobehaviours=" + time(() => Resources.FindObjectsOfTypeAll(typeof(MonoBehaviour)).Length) +
                    "; objects=" + time(() => Resources.FindObjectsOfTypeAll(typeof(UnityEngine.Object)).Length);
         }
+        if (args[0] == "tabs")
+        {
+            // The locked tabs of the character window and the tech tree (tabs|lock|TechTree,Map|Farming).
+            object knowledge = T("GK2Coop.CoopKnowledgeSync").GetMethod("Knowledge", Flags).Invoke(null, null);
+            Type system = knowledge.GetType();
+            if (args.Length > 2 && args[1] == "lock")
+            {
+                foreach (string page in args[2].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                    system.GetMethod("LockCharTab", Flags).Invoke(knowledge, new[] { Enum.Parse(T("CharacterWindowData+CharPage"), page) });
+                if (args.Length > 3)
+                    foreach (string tab in args[3].Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries))
+                        system.GetMethod("LockTechTab", Flags).Invoke(knowledge, new[] { Enum.Parse(T("TechTreeTab"), tab) });
+            }
+            var charTabs = ((IEnumerable)system.GetField("lockedCharacterWindowTabs", Flags).GetValue(knowledge)).Cast<object>().Select(o => o.ToString());
+            var techTabs = ((IEnumerable)system.GetField("lockedTechTabs", Flags).GetValue(knowledge)).Cast<object>().Select(o => o.ToString());
+            return "TABS locked=[" + string.Join(",", charTabs.ToArray()) + "] techLocked=[" + string.Join(",", techTabs.ToArray()) + "]";
+        }
+        if (args[0] == "knowledge-send-all")
+        {
+            // The host sends everything it knows to one player, as it does when that player joins.
+            T("GK2Coop.CoopKnowledgeSync").GetMethod("SendAllTo", Flags).Invoke(null, new object[] { ulong.Parse(args[1]) });
+            return "KNOWLEDGE-SEND-ALL " + args[1];
+        }
         if (args[0] == "perf")
         {
             // The mod's profiler ([Diagnostics] Profiler): totals since the last reset; "perf|reset", "perf|last".

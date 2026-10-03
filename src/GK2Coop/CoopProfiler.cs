@@ -44,7 +44,7 @@ namespace GK2Coop
             "TryRunConfiguredStartupAction", "IsOnMainMenu", "EmitCensus", "EmitCounterSummary",
             "OnUnityLog", "OnLogEvent", "LogSnapshot", "RunSecondTicks", "WriteSnapshot",
             // Inside the heavier ticks: where their time goes.
-            "Serialize", "SerializeInventory", "SendState", "SendInventory", "Classify", "Search",
+            "Serialize", "SerializeInventory", "SendState", "SendInventory", "Classify", "Search", "Pump",
         };
 
         private static ManualLogSource log;
