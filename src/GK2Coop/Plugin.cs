@@ -21,7 +21,7 @@ namespace GK2Coop
     {
         public const string Id = "com.fabio.gk2coop";
         public const string Name = "Graveyard Keeper 2 Co-op Prototype";
-        public const string Version = "0.65.4";
+        public const string Version = "0.65.5";
 
         private ConfigEntry<KeyCode> overlayKey;
         private ConfigEntry<string> defaultAddress;
@@ -30,6 +30,7 @@ namespace GK2Coop
         private ConfigEntry<string> startupMode;
         private ConfigEntry<bool> movementProbe;
         private ConfigEntry<bool> unityLogBridge;
+        private ConfigEntry<bool> detailedLogs;
         private ConfigEntry<bool> playerCensus;
         private ConfigEntry<bool> commandTelemetry;
         private ConfigEntry<bool> fixRemoteBodyKinematic;
@@ -52,6 +53,7 @@ namespace GK2Coop
         private ConfigEntry<bool> relayLogToHost;
         private ConfigEntry<bool> replicateToolUse;
         private ConfigEntry<bool> traceDrops;
+        private ConfigEntry<bool> profiler;
         private ConfigEntry<bool> clientRunsDeathLogic;
         private ConfigEntry<bool> replicateWorldDeaths;
         private ConfigEntry<bool> remoteDeathDrops;
@@ -107,7 +109,9 @@ namespace GK2Coop
         private int connectAttempts;
         private bool awaitingShutdownForRetry;
         private float nextStartupCheck;
-        private float nextStatePoll;
+        // The one-second ticks, each at its own moment in the second (see RunSecondTicks).
+        private Action[] secondTicks;
+        private float[] secondTickDue;
         private string lastNetworkState;
         private bool hostSaveSyncSent;
         private float hostClientsReadyAt = -1f;
@@ -149,6 +153,19 @@ namespace GK2Coop
         {
             Instance = this;
             Application.runInBackground = true;
+            if (Environment.GetEnvironmentVariable("GK2COOP_TEST_VANILLA") == "1" && CoopSaveBootstrap.TestSaveFolder != null)
+            {
+                // Test copies only: the game as it is without the mod, for a performance baseline.
+                // Only the test save folder and the test slot (so no player's save is touched),
+                // and the profiler's frame times.
+                var vanillaHarmony = new Harmony(Id + ".vanilla");
+                CoopSaveBootstrap.Init(Logger);
+                CoopSaveBootstrap.Install(vanillaHarmony);
+                CoopProfiler.Install(Logger, gameObject, true);
+                Logger.LogInfo($"{Name} {Version} loaded as a vanilla baseline: no co-op, no patches but the test save folder.");
+                enabled = false;
+                return;
+            }
             InstallSerializerPatch();
             overlayKey = Config.Bind("UI", "OverlayKey", KeyCode.F8, "Show or hide the co-op diagnostics window.");
             defaultAddress = Config.Bind("Network", "Address", "127.0.0.1", "Host address used by the prototype.");
@@ -160,6 +177,7 @@ namespace GK2Coop
             nightPasses = Config.Bind("Network", "NightPasses", "Everyone", "When you host: when the night passes. Everyone: only when every player sleeps. Host: when you sleep; the others stay awake and their clock jumps ahead with yours.");
             transportMode = Config.Bind("Network", "Transport", "IP", "IP: the game's own UDP connection (port forwarding or VPN for internet play). Steam: Steam's networking — join a Steam friend by their SteamID (address steam:<id>) through Valve's relay, no port forwarding; plain addresses still work through Steam's sockets. Falls back to IP when Steam is not running.");
             movementProbe = Config.Bind("Diagnostics", "MovementProbe", false, "Move the guest 0.75 units after loading and log both peers' player-data positions.");
+            detailedLogs = Config.Bind("Diagnostics", "DetailedLogs", false, "Write the detailed logs of the switches below (player census, command telemetry, network volume, drop trace, the game's informational messages, the joiners' logs on the host). Off: only the switches' errors and the usual messages. The detailed logs cost frame time; turn them on only to look into a problem.");
             unityLogBridge = Config.Bind("Diagnostics", "UnityLogBridge", true, "Forward the game's own errors and networking messages into the BepInEx log.");
             playerCensus = Config.Bind("Diagnostics", "PlayerCensus", true, "Log the component graph, ownership, and position of every player body when it changes.");
             commandTelemetry = Config.Bind("Diagnostics", "CommandTelemetry", true, "Count serialized/deserialized commands and report replicated movement.");
@@ -202,6 +220,7 @@ namespace GK2Coop
             measureNetworkVolume = Config.Bind("Diagnostics", "MeasureNetworkVolume", true, "Count messages and bytes leaving this machine, reported every 30 seconds with the peer count. The host sends every message to every peer, so its outbound volume grows with the number of clients; this measures that rather than leaving it to argument.");
             connectRetries = Config.Bind("Coop", "ConnectRetries", 5, "How many times a client retries a connection that starts but never reaches the host. Starting a client only means Netcode accepted the call; the connection can still fail a few seconds later, and without a retry one miss leaves the player alone in their own world.");
             connectRetrySeconds = Config.Bind("Coop", "ConnectRetrySeconds", 10f, "Seconds to wait for a connection attempt to reach the host before retrying it.");
+            profiler = Config.Bind("Diagnostics", "Profiler", false, "Measure the mod's own cost: time per frame, the slowest parts, frame times, garbage collections and network traffic, written to the log every 10 seconds. Costs a little time itself; turn it on only to find a slowdown.");
             traceDrops = Config.Bind("Diagnostics", "TraceDrops", true, "Log where harvested items go: drop spawn, collector trigger, and which player data CollectDrop credits.");
             autoStartNewGame = Config.Bind("Testing", "AutoStartNewGame", false, "Automation only: press New Game by itself once the main menu is up, so a two-instance test can run unattended. Invokes exactly what the menu button invokes.");
             autoStartSkipIntro = Config.Bind("Testing", "AutoStartSkipIntro", true, "With AutoStartNewGame, pass the game's own skipMainScene flag so the intro cinematic is bypassed. The intro waits for input, which an unattended run cannot provide.");
@@ -226,8 +245,12 @@ namespace GK2Coop
             statusKey = Config.Bind("UI", "SessionStatusKey", KeyCode.F6, "Toggle the multiplayer status panel.");
             nameTagKey = Config.Bind("UI", "NameTagKey", KeyCode.F7, "Toggle name tags above characters.");
             CoopDiagnostics.Init(Logger);
-            CoopDiagnostics.CensusEnabled = playerCensus.Value;
-            CoopDiagnostics.TelemetryEnabled = commandTelemetry.Value;
+            // The detailed logs are written only with [Diagnostics] DetailedLogs (the tests turn it on):
+            // each of them was on by default, and together they cost players frame time.
+            bool detailed = detailedLogs.Value;
+            CoopDiagnostics.Detailed = detailed;
+            CoopDiagnostics.CensusEnabled = detailed && playerCensus.Value;
+            CoopDiagnostics.TelemetryEnabled = detailed && commandTelemetry.Value;
             if (unityLogBridge.Value)
             {
                 CoopDiagnostics.InstallUnityLogBridge();
@@ -236,7 +259,7 @@ namespace GK2Coop
             CoopToolSync.Init(Logger);
             CoopToolSync.Enabled = replicateToolUse.Value;
             CoopDropTrace.Init(Logger);
-            CoopDropTrace.Enabled = traceDrops.Value;
+            CoopDropTrace.Enabled = detailed && traceDrops.Value;
             CoopDeathLogicFix.Init(Logger);
             CoopDeathLogicFix.Enabled = clientRunsDeathLogic.Value;
             CoopWorldSync.Init(Logger);
@@ -292,7 +315,7 @@ namespace GK2Coop
             CoopMenu.Enabled = showCoopMenu.Value;
             CoopMenu.Init(Logger, startupMode, defaultAddress, defaultPort, playerName, ArmStartupAction);
             CoopNetStats.Init(Logger);
-            CoopNetStats.Enabled = measureNetworkVolume.Value;
+            CoopNetStats.Enabled = detailed && measureNetworkVolume.Value;
             if (shareDrops.Value && remoteDeathDrops.Value)
             {
                 // Both would spawn a drop for the same death; sharing supersedes duplicating.
@@ -300,7 +323,8 @@ namespace GK2Coop
                 Logger.LogInfo("ShareDrops is on, so RemoteDeathDrops is ignored for this session.");
             }
             var coopHarmony = new Harmony(Id + ".coop");
-            CoopPatches.Install(coopHarmony, Logger, fixRemoteBodyKinematic.Value, commandTelemetry.Value, matchRemoteBodyScene.Value, fixRemoteBodyAppearance.Value);
+            CoopPatches.Install(coopHarmony, Logger, fixRemoteBodyKinematic.Value, detailed && commandTelemetry.Value, matchRemoteBodyScene.Value, fixRemoteBodyAppearance.Value);
+            CoopBodies.Install(coopHarmony, Logger);
             CoopToolSync.Install(coopHarmony);
             CoopDropTrace.Install(coopHarmony);
             CoopDeathLogicFix.Install(coopHarmony);
@@ -390,13 +414,14 @@ namespace GK2Coop
             CoopPlayerProfiles.SaveKey = key => playerKey.Value = key;
             CoopPlayerProfiles.Enabled = keepPlayerProgress.Value;
             CoopTransportGuard.Enabled = rebindAfterClientLeaves.Value;
-            CoopLogRelay.Enabled = relayLogToHost.Value;
+            CoopLogRelay.Enabled = detailed && relayLogToHost.Value;
             CoopLogRelay.Init(Logger);
             address = defaultAddress.Value;
             port = defaultPort.Value.ToString();
             SceneManager.sceneLoaded += OnSceneLoaded;
+            CoopProfiler.Install(Logger, gameObject, profiler.Value);
             Logger.LogInfo($"{Name} {Version} loaded. Press {overlayKey.Value} for diagnostics.");
-            InvokeRepeating(nameof(RefreshReport), 1f, 3f);
+            InvokeRepeating(nameof(RefreshShownReport), 1f, 3f);
         }
 
         private void InstallSerializerPatch()
@@ -475,20 +500,59 @@ namespace GK2Coop
             {
                 gameplaySceneLoadedAt = Time.unscaledTime;
             }
-            RefreshReport();
             CancelInvoke(nameof(LogSnapshot));
             Invoke(nameof(LogSnapshot), 2f);
         }
 
+        /// <summary>
+        /// After a scene load or a player leaving: starts the game's dormant networking once it
+        /// can, and writes the state. The full report searches all memory for seven types (about
+        /// 60 ms in a day-18 world), so it is written only with DetailedLogs or on F9; otherwise
+        /// a short line.
+        /// </summary>
         private void LogSnapshot()
         {
-            RefreshReport();
             if (autoInitialize.Value && !IsNativeInitialized() && CanInitialize(out _))
             {
                 RunAction("Automatic native initialization", InitializeNativeNetwork);
             }
+            if (CoopDiagnostics.Detailed)
+            {
+                WriteSnapshot();
+            }
+            else
+            {
+                Logger.LogInfo("Native network snapshot: " + BriefState());
+            }
+        }
+
+        private void WriteSnapshot()
+        {
             RefreshReport();
             Logger.LogInfo("Native network snapshot:\n" + report);
+        }
+
+        private static string BriefState()
+        {
+            try
+            {
+                return "scene " + SceneManager.GetActiveScene().name + "; LazyNetwork initialized: " + IsNativeInitialized() + "; " +
+                       DescribeMemberValues(GetStaticMember(FindType("Unity.Netcode.NetworkManager"), "Singleton"), "Netcode", "IsHost", "IsClient", "IsListening", "LocalClientId") + "; " +
+                       DescribeMemberValues(GetStaticMember(FindType("MainGame"), "Instance"), "Main game", "gameState", "IsGamePaused");
+            }
+            catch (Exception ex)
+            {
+                return "(" + ex.Message + ")";
+            }
+        }
+
+        /// <summary>Every 3 s: the F8 window's report, only while the window is open.</summary>
+        private void RefreshShownReport()
+        {
+            if (overlayVisible)
+            {
+                RefreshReport();
+            }
         }
 
         private void Update()
@@ -570,7 +634,7 @@ namespace GK2Coop
 
             if (Input.GetKeyDown(KeyCode.F9))
             {
-                LogSnapshot();
+                WriteSnapshot();
             }
 
             if (Input.GetKeyDown(statusKey.Value))
@@ -601,33 +665,7 @@ namespace GK2Coop
             CoopTransportGuard.Tick();
             CoopLifecycle.Tick();
 
-            if (Time.unscaledTime >= nextStatePoll)
-            {
-                nextStatePoll = Time.unscaledTime + 1f;
-                PollNetworkState();
-                DriveSessionAutomation();
-                CoopDiagnostics.Tick();
-                CoopNetStats.Tick();
-                CoopHostLeft.Tick();
-                CoopWatchdog.Tick();
-                CoopSession.Tick();
-                CoopPlayerProfiles.Tick();
-                CoopCraftSync.Tick();
-                CoopSleepSync.Tick();
-                CoopAppearanceSync.Tick();
-                CoopVendorSync.Tick();
-                CoopKnowledgeSync.Tick();
-                CoopSceneSync.Tick();
-                CoopWorldResSync.Tick();
-                CoopSharedGems.Tick();
-                CoopWeatherSync.Tick();
-                CoopSteamLobby.Tick();
-                CoopLogRelay.Tick();
-                CoopDropTrace.Tick();
-                CoopHud.Tick();
-                DriveMovementProbe();
-                DriveClientStartDiagnostics();
-            }
+            RunSecondTicks();
             CoopPlayerContext.VerifyNotLeaked();
 
             try
@@ -638,6 +676,47 @@ namespace GK2Coop
             {
                 LogSource.LogError("Chunked save transfer pump failed: " + ex);
                 outboundSave = null;
+            }
+        }
+
+        /// <summary>
+        /// The ticks that run once a second, spread evenly over the second. They all ran in the
+        /// same frame before, so their costs added up to one long frame every second.
+        /// </summary>
+        private void RunSecondTicks()
+        {
+            float now = Time.unscaledTime;
+            if (secondTicks == null)
+            {
+                secondTicks = new Action[]
+                {
+                    () => { PollNetworkState(); DriveSessionAutomation(); },
+                    CoopDiagnostics.Tick, CoopNetStats.Tick, CoopHostLeft.Tick, CoopWatchdog.Tick, CoopSession.Tick,
+                    CoopPlayerProfiles.Tick, CoopCraftSync.Tick, CoopSleepSync.Tick, CoopAppearanceSync.Tick,
+                    CoopVendorSync.Tick, CoopKnowledgeSync.Tick, CoopSceneSync.Tick, CoopWorldResSync.Tick,
+                    CoopSharedGems.Tick, CoopWeatherSync.Tick, CoopSteamLobby.Tick, CoopLogRelay.Tick,
+                    CoopDropTrace.Tick, CoopHud.Tick,
+                    () => { DriveMovementProbe(); DriveClientStartDiagnostics(); },
+                };
+                secondTickDue = new float[secondTicks.Length];
+                for (int i = 0; i < secondTicks.Length; i++)
+                {
+                    secondTickDue[i] = now + (float)i / secondTicks.Length;
+                }
+            }
+            for (int i = 0; i < secondTicks.Length; i++)
+            {
+                if (now < secondTickDue[i])
+                {
+                    continue;
+                }
+                // Each keeps its place in the second; after a long frame it starts again from now.
+                secondTickDue[i] += 1f;
+                if (secondTickDue[i] <= now)
+                {
+                    secondTickDue[i] = now + 1f;
+                }
+                secondTicks[i]();
             }
         }
 
@@ -1335,10 +1414,7 @@ namespace GK2Coop
                 // unattended test never clears this gate.
                 return false;
             }
-            Type bodyType = RequireType("PlayerPhysicalBody");
-            return Resources.FindObjectsOfTypeAll(bodyType)
-                .OfType<Component>()
-                .Any(body => body.gameObject.activeInHierarchy);
+            return CoopBodies.All().Any(body => body.gameObject.activeInHierarchy);
         }
 
         /// <summary>
@@ -1442,15 +1518,12 @@ namespace GK2Coop
         /// <summary>True while the game is sitting on its main menu, where setup belongs.</summary>
         private static bool IsOnMainMenu()
         {
+            // Asked several times a frame (each OnGUI pass): read directly. By reflection it cost
+            // about 60 microseconds a call.
             try
             {
-                object mainGame = GetStaticMember(FindType("MainGame"), "Instance");
-                if (mainGame == null)
-                {
-                    return false;
-                }
-                return string.Equals(Convert.ToString(GetInstanceMember(mainGame, "gameState")), "MainMenu",
-                    StringComparison.Ordinal);
+                MainGame mainGame = MainGame.Instance;
+                return mainGame != null && mainGame.gameState == MainGame.GameState.MainMenu;
             }
             catch
             {
@@ -1513,7 +1586,7 @@ namespace GK2Coop
             }
             finally
             {
-                RefreshReport();
+                RefreshShownReport();
             }
         }
 
@@ -2175,28 +2248,42 @@ namespace GK2Coop
             return type;
         }
 
-        private static readonly Dictionary<string, Type> gameTypeCache = new Dictionary<string, Type>();
-
         /// <summary>
         /// Cached type lookup for the diagnostics and patch helpers, which resolve the same handful
         /// of game types from hot paths such as the per-command telemetry prefix.
         /// </summary>
         internal static Type FindGameType(string name)
         {
-            Type cached;
-            if (gameTypeCache.TryGetValue(name, out cached) && cached != null)
-            {
-                return cached;
-            }
-            Type resolved = FindType(name);
-            if (resolved != null)
-            {
-                gameTypeCache[name] = resolved;
-            }
-            return resolved;
+            return FindType(name);
         }
 
+        private static readonly Dictionary<string, KeyValuePair<Type, int>> typeLookups = new Dictionary<string, KeyValuePair<Type, int>>();
+
+        /// <summary>
+        /// A game type by name, looked up once (a type not found, again after 30 s): the ticks
+        /// ask for the same few types every second, and each search went through every loaded
+        /// assembly, a miss through every type in them.
+        /// </summary>
         private static Type FindType(string name)
+        {
+            int now = Environment.TickCount;
+            lock (typeLookups)
+            {
+                if (typeLookups.TryGetValue(name, out KeyValuePair<Type, int> known) &&
+                    (known.Key != null || now - known.Value < 0))
+                {
+                    return known.Key;
+                }
+            }
+            Type found = SearchType(name);
+            lock (typeLookups)
+            {
+                typeLookups[name] = new KeyValuePair<Type, int>(found, now + 30000);
+            }
+            return found;
+        }
+
+        private static Type SearchType(string name)
         {
             foreach (Assembly assembly in AppDomain.CurrentDomain.GetAssemblies())
             {

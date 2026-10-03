@@ -195,9 +195,18 @@ namespace GK2Coop
         /// Only the host merges. A client's own merge would race the host's and could pick the
         /// other survivor, leaving the two machines with different drop identities.
         /// </summary>
-        private static bool MergePrefix(object __instance, object[] __args, ref string __state)
+        /// <summary>What a merge on the host started from: the absorbed drop and both counts.</summary>
+        internal struct MergeState
         {
-            __state = null;
+            internal string AbsorbedId;
+            internal object Absorbed;
+            internal int SurvivorBefore;
+            internal int AbsorbedBefore;
+        }
+
+        private static bool MergePrefix(object __instance, object[] __args, ref MergeState __state)
+        {
+            __state = default(MergeState);
             if (!Enabled || applyingRemote)
             {
                 return true;
@@ -212,16 +221,35 @@ namespace GK2Coop
                 return false;
             }
             object absorbed = __args != null && __args.Length > 0 ? __args[0] : null;
-            __state = ReadDropGuid(CoopDiagnostics.GetMember(absorbed, "Data") ?? absorbed);
+            __state.Absorbed = absorbed;
+            __state.AbsorbedId = ReadDropGuid(CoopDiagnostics.GetMember(absorbed, "Data") ?? absorbed);
+            __state.SurvivorBefore = DropCount(__instance);
+            __state.AbsorbedBefore = DropCount(absorbed);
             return true;
         }
 
-        private static void MergePostfix(object __instance, string __state)
+        private static int DropCount(object view)
         {
-            if (string.IsNullOrEmpty(__state))
+            object data = CoopDiagnostics.GetMember(view, "Data");
+            object count = data == null ? null : CoopDiagnostics.GetMember(data, "Count");
+            return count == null ? -1 : Convert.ToInt32(count);
+        }
+
+        private static void MergePostfix(object __instance, MergeState __state)
+        {
+            if (string.IsNullOrEmpty(__state.AbsorbedId))
             {
                 return;
             }
+            // The game tries a merge on every physics step for drops that touch, also when they
+            // cannot merge (other items). Only a merge that moved items is news: reporting every
+            // try searched all drops and sent the other players a message each time, hundreds a
+            // second where drops of different items lay on each other.
+            if (DropCount(__instance) == __state.SurvivorBefore && DropCount(__state.Absorbed) == __state.AbsorbedBefore)
+            {
+                return;
+            }
+            string absorbedId = __state.AbsorbedId;
             try
             {
                 NetworkManager netcode = NetworkManager.Singleton;
@@ -238,7 +266,7 @@ namespace GK2Coop
                 int survivorCount = Convert.ToInt32(CoopDiagnostics.GetMember(survivor, "Count"));
                 // The absorbed drop is only gone when it gave up everything; a partial merge
                 // leaves it in the world with a smaller stack.
-                object absorbed = FindDrop(__state);
+                object absorbed = FindDrop(absorbedId);
                 int absorbedCount = absorbed == null ? 0 : Convert.ToInt32(CoopDiagnostics.GetMember(absorbed, "Count"));
 
                 using (var writer = new FastBufferWriter(384, Allocator.Temp))
@@ -246,7 +274,7 @@ namespace GK2Coop
                     writer.WriteValueSafe(++outgoingSequence);
                     writer.WriteValueSafe(new FixedString128Bytes(survivorId));
                     writer.WriteValueSafe(survivorCount);
-                    writer.WriteValueSafe(new FixedString128Bytes(__state));
+                    writer.WriteValueSafe(new FixedString128Bytes(absorbedId));
                     writer.WriteValueSafe(absorbedCount);
                     foreach (ulong clientId in netcode.ConnectedClientsIds)
                     {
@@ -258,7 +286,7 @@ namespace GK2Coop
                     }
                 }
                 mergesSent++;
-                Detail("Host merged drop " + Shorten(__state) + " into " + Shorten(survivorId) +
+                Detail("Host merged drop " + Shorten(absorbedId) + " into " + Shorten(survivorId) +
                        "; survivor now " + survivorCount + ", absorbed " + absorbedCount + ".");
             }
             catch (Exception ex)

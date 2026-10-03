@@ -136,8 +136,11 @@ functions of the F keys.
 Open an [issue](../../issues). Give this data:
 
 1. What you did, and what occurred.
-2. The version of the mod. The **Co-op** menu shows the version.
+2. The version of the mod. The **Co-op** window on the main menu shows the version.
 3. The log file of each player: `BepInEx\LogOutput.log` in the game folder.
+4. If the game is slow: open `BepInEx\config\com.fabio.gk2coop.cfg` with a text editor and set
+   `Profiler = true` (section `[Diagnostics]`). Play for some minutes. The log then contains the
+   time that the mod uses. After the test, set `Profiler = false` again.
 
 > **NOTE:** The game replaces the log file when it starts. Copy the log file immediately after
 > the session.

@@ -690,16 +690,8 @@ namespace GK2Coop
         {
             int previousCount = tagTargets.Count;
             tagTargets.Clear();
-            Type bodyType = Plugin.FindGameType("PlayerPhysicalBody");
-            if (bodyType == null)
-            {
-                return;
-            }
-
             object localPlayerData = CoopDiagnostics.GetStatic(Plugin.FindGameType("MainGame"), "PlayerData");
-            foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType)
-                         .OfType<Component>()
-                         .Where(candidate => candidate.gameObject.scene.IsValid() && candidate.gameObject.activeInHierarchy))
+            foreach (Component body in CoopBodies.All().Where(candidate => candidate.gameObject.activeInHierarchy))
             {
                 object bodyData = CoopDiagnostics.GetMember(body, "playerData");
                 if (bodyData == null)
@@ -826,14 +818,9 @@ namespace GK2Coop
         /// <summary>The point above another player's character where the game puts speech bubbles.</summary>
         internal static Transform BubblePointOf(ulong clientId)
         {
-            Type bodyType = Plugin.FindGameType("PlayerPhysicalBody");
-            if (bodyType == null)
+            foreach (Component body in CoopBodies.All())
             {
-                return null;
-            }
-            foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType).OfType<Component>())
-            {
-                if (!body.gameObject.scene.IsValid() || !body.gameObject.activeInHierarchy)
+                if (!body.gameObject.activeInHierarchy)
                 {
                     continue;
                 }
@@ -895,10 +882,11 @@ namespace GK2Coop
             {
                 camera = Camera.main;
             }
-            if (camera != null)
+            if (camera != null && CoopDiagnostics.Detailed)
             {
                 // Re-report when the render target changes: the world camera only gains its
                 // RenderTexture once gameplay starts, so a single startup line is misleading.
+                // Detailed logs only: it is asked every frame, and the size flips in single frames.
                 string report = "Name tag camera: " + camera.name +
                             "; cameraPixels=" + camera.pixelWidth + "x" + camera.pixelHeight +
                             "; screen=" + Screen.width + "x" + Screen.height +

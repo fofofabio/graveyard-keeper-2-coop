@@ -114,6 +114,20 @@ param(
     [string]$GhostLooks = '',
     [string]$FightLevel = 'fight_A1_1',
     [int]$SoakMinutes = 0,
+    # Performance: the mod's profiler in every game, frames at up to 60 a second; each phase this
+    # many minutes (idle: standing; walk: walking; busy: walking, harvests and a chest; yard: the
+    # same in the test yard with a zombie at work, co-op only). Reports in perf-<phase>-<peer>.txt
+    # and perf.txt. -PerfSolo: the host alone, no joiner started; -PerfNoHosting with it: the mod
+    # loaded but no co-op; -PerfVanilla with it: the game without the mod (only the test save
+    # folder). Three or four players: -ThirdPath and -FourthPath.
+    [int]$PerfMinutes = 0,
+    [string]$PerfPhases = 'idle,walk,busy,yard',
+    [switch]$PerfSolo,
+    [switch]$PerfNoHosting,
+    [switch]$PerfVanilla,
+    # Measure with the detailed logs on (the tests' setting) instead of the players' default.
+    [switch]$PerfDetailed,
+    [string]$FourthPath = '',
     # The regression runner saves and restores the game's registry preferences once around all its
     # runs (runs in parallel would restore each other's test values).
     [switch]$SkipPrefs,
@@ -159,6 +173,9 @@ $peers = @(
     [pscustomobject]@{Name='Client';Path=$ClientPath;Mode='Connect';Address='127.0.0.1';Process=$null}
 )
 if ($ThirdPath) { $peers += [pscustomobject]@{Name='Third';Path=$ThirdPath;Mode='Connect';Address='127.0.0.1';Process=$null} }
+if ($FourthPath) { $peers += [pscustomobject]@{Name='Fourth';Path=$FourthPath;Mode='Connect';Address='127.0.0.1';Process=$null} }
+if ($PerfSolo) { $peers = @($peers[0]) }
+if ($PerfSolo -and ($PerfNoHosting -or $PerfVanilla)) { $peers[0].Mode = 'None' }
 $sourceDat = Join-Path $SaveBackup 'Steam_1.dat'
 $sourceInfo = Join-Path $SaveBackup 'Steam_1.info'
 $testDat = Join-Path $saveFolder ($slot + '.dat')
@@ -175,6 +192,53 @@ function Probe([string]$peer, [string]$command) {
     $result = & $invoke -Peer $peer -Command $command -TimeoutSeconds 10
     if ($result -match '(?m)^ERROR ') { throw $result }
     return $result
+}
+$perfSummary = New-Object System.Collections.Generic.List[string]
+# One measuring phase on these games: the profiler starts over, the players do the phase's
+# activity, and each game's totals since the start are kept.
+function PerfPhase([string]$Label, [string[]]$Sides) {
+    foreach ($side in $Sides) { Probe $side 'fps|60' | Out-Null; Probe $side 'close-windows' | Out-Null }
+    $chest = $null; $ripe = @()
+    if ($Label -in 'busy','yard') {
+        if ($Label -eq 'yard') {
+            foreach ($side in $Sides) { Probe $side 'test-tools|Home' | Out-Null }
+            Start-Sleep -Seconds 12
+            Probe Host 'test-tools|yard' | Out-Null
+            Start-Sleep -Seconds 4
+        }
+        if ((Probe Host 'inspect') -match 'CONTAINER ([0-9a-f-]+) chest_home') { $chest = $Matches[1] }
+        $ripe = @(((Probe Host 'objects|garden') -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^OBJ (\S+) garden_\w+_ready$' } | ForEach-Object { ($_ -split ' ')[1] })
+    }
+    if ($perfSummary.Count -le 1) {
+        # Once per run, before measuring: what a search for objects of a type costs in this world.
+        foreach ($type in 'PlayerPhysicalBody','FightingLevel','Wgo') { $perfSummary.Add((((Probe Host "scan-cost|$type") -split "`n") | Where-Object { $_ -like 'SCAN-COST *' }) -join '') }
+    }
+    Start-Sleep -Seconds 3
+    foreach ($side in $Sides) { Probe $side 'perf|reset' | Out-Null }
+    $end = (Get-Date).AddMinutes($PerfMinutes)
+    $round = 0; $harvested = 0
+    while ((Get-Date) -lt $end) {
+        $round++
+        if ($Label -ne 'idle') {
+            $step = if ($round % 2) { 3 } else { -3 }
+            for ($i = 0; $i -lt $Sides.Count; $i++) {
+                $walk = if ($i % 2) { "walk|0|$step" } else { "walk|$step|0" }
+                Probe $Sides[$i] $walk | Out-Null
+            }
+        }
+        if ($Label -in 'busy','yard') {
+            $actor = $Sides[$round % $Sides.Count]
+            if ($chest) { Probe $actor ($(if ($round % 2) { "container-add|$chest|berry|1" } else { "container-remove|$chest|berry|1" })) | Out-Null }
+            if ($round % 3 -eq 0 -and $harvested -lt $ripe.Count) { Probe $actor "wgo-kill|$($ripe[$harvested])" | Out-Null; $harvested++ }
+        }
+        Start-Sleep -Seconds 6
+    }
+    foreach ($side in $Sides) {
+        $report = (((Probe $side 'perf') -split "`n") | Select-Object -Skip 1) -join "`n"
+        [IO.File]::WriteAllText((Join-Path $OutputPath "perf-$Label-$side.txt"), $report)
+        $perfSummary.Add("$Label $side (rounds $round, harvests $harvested): " + (($report -split "`n")[0]))
+    }
+    [IO.File]::WriteAllText((Join-Path $OutputPath 'perf.txt'), ($perfSummary -join "`n"))
 }
 function Check([bool]$passed, [string]$label) {
     $line = $(if ($passed) { 'PASS ' } else { 'FAIL ' }) + $label
@@ -229,6 +293,7 @@ function WaitFor([string]$log, [string]$pattern, [int]$seconds) {
 Assert-TestInstall $HostPath
 Assert-TestInstall $ClientPath
 if ($ThirdPath) { Assert-TestInstall $ThirdPath }
+if ($FourthPath) { Assert-TestInstall $FourthPath }
 $copiesInUse = @($peers | ForEach-Object Path)
 if ((Get-TestGameProcesses $copiesInUse).Count -gt 0) { throw 'A test copy of the game is still running.' }
 # Slots an interrupted run left behind (no cleanup ran): moved out before anything else.
@@ -298,7 +363,19 @@ try {
         } else {
             $config += "`r`n[UI]`r`n`r`nGameStyle = $style`r`n"
         }
-        if ($TestToolsExperiment -or $BuildPlayground) {
+        # The detailed logs ([Diagnostics] DetailedLogs, off for players): the checks read some of
+        # them (the game's "has Disconnected", the full network snapshot). A measurement keeps the
+        # players' setting unless asked.
+        $detailed = if ($PerfMinutes -gt 0 -and -not $PerfDetailed) { 'false' } else { 'true' }
+        if ($config -match '(?m)^DetailedLogs\s*=') { $config = [regex]::Replace($config, '(?m)^DetailedLogs\s*=.*$', "DetailedLogs = $detailed") }
+        elseif ($config -match '(?m)^\[Diagnostics\]\s*$') { $config = [regex]::Replace($config, '(?m)^\[Diagnostics\]\s*$', "[Diagnostics]`r`n`r`nDetailedLogs = $detailed") }
+        else { $config += "`r`n[Diagnostics]`r`n`r`nDetailedLogs = $detailed`r`n" }
+        if ($PerfMinutes -gt 0) {
+            if ($config -match '(?m)^Profiler\s*=') { $config = [regex]::Replace($config, '(?m)^Profiler\s*=.*$', 'Profiler = true') }
+            elseif ($config -match '(?m)^\[Diagnostics\]\s*$') { $config = [regex]::Replace($config, '(?m)^\[Diagnostics\]\s*$', "[Diagnostics]`r`n`r`nProfiler = true") }
+            else { $config += "`r`n[Diagnostics]`r`n`r`nProfiler = true`r`n" }
+        }
+        if ($TestToolsExperiment -or $BuildPlayground -or $PerfMinutes -gt 0) {
             if ($config -match '(?m)^TestTools\s*=') { $config = [regex]::Replace($config, '(?m)^TestTools\s*=.*$', 'TestTools = true') }
             else { $config += "`r`n[Testing]`r`n`r`nTestTools = true`r`n" }
         }
@@ -313,10 +390,26 @@ try {
     $env:GK2COOP_TEST_HOST_PATH = $HostPath
     $env:GK2COOP_TEST_CLIENT_PATH = $ClientPath
     if ($ThirdPath) { $env:GK2COOP_TEST_THIRD_PATH = $ThirdPath }
+    if ($FourthPath) { $env:GK2COOP_TEST_FOURTH_PATH = $FourthPath }
+    if ($PerfVanilla) { $env:GK2COOP_TEST_VANILLA = '1' }
     $exe = 'GraveyardKeeper2.exe'
     $peers[0].Process = Start-TestGame $HostPath
     $hostLog = Join-Path $HostPath 'BepInEx\LogOutput.log'
     WaitFor $hostLog ("Invoked the game's Continue button for isolated slot $slot") 120
+    if ($PerfSolo) {
+        # One game only: the host alone, the mod without co-op, or the game without the mod.
+        Remove-Item Env:\GK2COOP_TEST_VANILLA -ErrorAction SilentlyContinue
+        $deadline = (Get-Date).AddSeconds(240)
+        do { Start-Sleep -Seconds 3; $state = (((Probe Host 'game-state') -split "`n") | Where-Object { $_ -like 'GAME-STATE *' }) -join '' } while ((Get-Date) -lt $deadline -and $state -notmatch 'InGame')
+        if ($state -notmatch 'InGame') { throw "The host did not reach the game ($state)" }
+        if ($peers[0].Mode -eq 'Host') { WaitFor $hostLog 'Attached native host networking' 180 }
+        Start-Sleep -Seconds 20
+        $kind = if ($PerfVanilla) { 'vanilla' } elseif ($PerfNoHosting) { 'mod, no co-op' } else { 'host alone' }
+        $perfSummary.Add("run: $kind; save $SaveBackup; $PerfMinutes min per phase")
+        foreach ($phase in ($PerfPhases -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne 'yard' -or $peers[0].Mode -eq 'Host' })) { PerfPhase $phase @('Host') }
+        Check $true "Performance measured ($kind): perf.txt"
+        return
+    }
     WaitFor $hostLog 'Attached native host networking' 180
     if ($FreshClient -or $MenuConnectClient -or $MenuBootstrapClient) { Remove-Item Env:\GK2COOP_TEST_CONTINUE_SLOT }
     if ($MenuConnectClient -or $MenuBootstrapClient) { $env:GK2COOP_TEST_MENU_CONNECT = '1' }
@@ -1406,11 +1499,19 @@ try {
         $wires = "host $(((Probe Host 'transport') -split "`n" | Where-Object { $_ -like 'TRANSPORT *' }) -join '') / joiner $(((Probe Client 'transport') -split "`n" | Where-Object { $_ -like 'TRANSPORT *' }) -join '')"
         Check ($wires -match 'host TRANSPORT Steam .* joiner TRANSPORT Steam') "Both players run the session on Steam's networking ($wires)"
     }
-    Check ($hostProgress -match 'WORLD scenes=6 objects=10\d\d' -and $clientProgress -match 'WORLD scenes=6 objects=10\d\d') 'Both players loaded the progressed world'
-    Check ($hostProgress -match 'QUESTS Completed=115' -and $clientProgress -match 'QUESTS Completed=115') 'Both players retained the progressed quest state'
+    if ($SaveBackup -like '*full-release-20260923-071217*') {
+        Check ($hostProgress -match 'WORLD scenes=6 objects=10\d\d' -and $clientProgress -match 'WORLD scenes=6 objects=10\d\d') 'Both players loaded the progressed world'
+        Check ($hostProgress -match 'QUESTS Completed=115' -and $clientProgress -match 'QUESTS Completed=115') 'Both players retained the progressed quest state'
+    } else {
+        # Another world (a late-game copy for measuring): the same world and quests on both sides.
+        $hostWorld = [regex]::Match($hostProgress, 'WORLD scenes=\d+').Value; $clientWorld = [regex]::Match($clientProgress, 'WORLD scenes=\d+').Value
+        $hostDone = [regex]::Match($hostProgress, 'QUESTS Completed=\d+').Value; $clientDone = [regex]::Match($clientProgress, 'QUESTS Completed=\d+').Value
+        Check ($hostWorld -and $hostWorld -eq $clientWorld) "Both players loaded the world ($hostWorld / $clientWorld)"
+        Check ($hostDone -and $hostDone -eq $clientDone) "Both players have the same quest state ($hostDone / $clientDone)"
+    }
 
     $before = Probe Client 'inspect'
-    if ($before -notmatch 'CONTAINER ([0-9a-f-]+) chest_home size=20 items=([^\r\n]*)') { throw 'No chest_home in the progressed save.' }
+    if ($before -notmatch 'CONTAINER ([0-9a-f-]+) chest_home size=\d+ items=([^\r\n]*)') { throw 'No chest_home in the progressed save.' }
     $chestId = $Matches[1]
     $beforeItems = $Matches[2]
     $beforeBerries = if ($beforeItems -match 'berryx(\d+)') { [int]$Matches[1] } else { 0 }
@@ -1669,6 +1770,31 @@ try {
         [IO.File]::WriteAllText((Join-Path $OutputPath 'bindings.txt'), (Probe Client 'bindings'))
         [IO.File]::WriteAllText((Join-Path $OutputPath 'pad-bindings.txt'), (Probe Client 'pad-bindings'))
         Check (Test-Path (Join-Path $OutputPath 'bindings.txt')) 'Bindings written'
+    }
+    if ($PerfMinutes -gt 0) {
+        # Performance with two, three or four players. The extra joiners come from the main menu,
+        # each with a save folder of its own, as in the mix.
+        $perfSides = @('Host','Client')
+        foreach ($extra in @(@('Third', $ThirdPath), @('Fourth', $FourthPath))) {
+            if (-not $extra[1]) { continue }
+            $extraLog = Join-Path $extra[1] 'BepInEx\LogOutput.log'
+            if (Test-Path -LiteralPath $extraLog) { Move-Item -LiteralPath $extraLog -Destination (Join-Path $OutputPath "$($extra[0])-log-before.txt") -Force }
+            $extraSaves = "$saveFolder-$($extra[0].ToLower())"
+            New-Item -ItemType Directory -Force -Path $extraSaves | Out-Null
+            $env:GK2COOP_TEST_SAVE_FOLDER = $extraSaves
+            $env:GK2COOP_TEST_MENU_CONNECT = '1'
+            ($peers | Where-Object Name -eq $extra[0]).Process = Start-TestGame $extra[1]
+            $env:GK2COOP_TEST_SAVE_FOLDER = $saveFolder
+            WaitFor $extraLog 'gameState=MainMenu' 150
+            Probe $extra[0] "menu-bootstrap|127.0.0.1|$hostPort|$($extra[0])" | Out-Null
+            WaitFor $extraLog 'Attached client networking to the normally initialized local game world.' 300
+            WaitFor $extraLog 'accepted the connection' 60
+            Start-Sleep -Seconds 8
+            $perfSides += $extra[0]
+        }
+        $perfSummary.Add("run: $($perfSides.Count) players; save $SaveBackup; $PerfMinutes min per phase")
+        foreach ($phase in ($PerfPhases -split ',')) { PerfPhase $phase.Trim() $perfSides }
+        Check $true "Performance measured with $($perfSides.Count) players: perf.txt"
     }
     if ($SoakMinutes -gt 0) {
         # A long session: both players keep using the shared chest, moving and chatting; memory,
@@ -3201,7 +3327,7 @@ try {
 finally {
     [Environment]::SetEnvironmentVariable('GK2COOP_TEST_TIDY', $null)
     [Environment]::SetEnvironmentVariable('GK2COOP_TEST_SAVE_FOLDER', $null)
-    Remove-Item Env:\GK2COOP_TEST_LANG,Env:\GK2COOP_TEST_CONTINUE_SLOT,Env:\GK2COOP_TEST_MENU_CONNECT,Env:\GK2COOP_TEST_HOST_PATH,Env:\GK2COOP_TEST_CLIENT_PATH,Env:\GK2COOP_TEST_THIRD_PATH,Env:\GK2COOP_TEST_QUIET,Env:\GK2COOP_TEST_STEAM_LOCALIP -ErrorAction SilentlyContinue
+    Remove-Item Env:\GK2COOP_TEST_LANG,Env:\GK2COOP_TEST_CONTINUE_SLOT,Env:\GK2COOP_TEST_MENU_CONNECT,Env:\GK2COOP_TEST_HOST_PATH,Env:\GK2COOP_TEST_CLIENT_PATH,Env:\GK2COOP_TEST_THIRD_PATH,Env:\GK2COOP_TEST_FOURTH_PATH,Env:\GK2COOP_TEST_VANILLA,Env:\GK2COOP_TEST_QUIET,Env:\GK2COOP_TEST_STEAM_LOCALIP -ErrorAction SilentlyContinue
     foreach ($peer in $peers) {
         if ($peer.Process -and -not $peer.Process.HasExited) { $peer.Process.Kill(); $peer.Process.WaitForExit(10000) | Out-Null }
     }
@@ -3216,10 +3342,11 @@ finally {
         Copy-Item -LiteralPath $savedConfig -Destination (ConfigPath $peer) -Force
         Write-Host "$($peer.Name) config restored: $((Get-FileHash (ConfigPath $peer)).Hash -eq (Get-FileHash $savedConfig).Hash)"
     }
-    if ($ThirdPath) {
-        # The third player's save folder is this run's alone: its world copies go with the run.
-        $thirdSaves = "$saveFolder-third"
-        foreach ($file in Get-ChildItem -LiteralPath $thirdSaves -Filter 'GK2Coop_*' -File -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "Third-$($file.Name)") -Force }
+    foreach ($extra in @(@('Third', $ThirdPath), @('Fourth', $FourthPath))) {
+        if (-not $extra[1]) { continue }
+        # An extra player's save folder is this run's alone: its world copies go with the run.
+        $extraSaves = "$saveFolder-$($extra[0].ToLower())"
+        foreach ($file in Get-ChildItem -LiteralPath $extraSaves -Filter 'GK2Coop_*' -File -ErrorAction SilentlyContinue) { Move-Item -LiteralPath $file.FullName -Destination (Join-Path $OutputPath "$($extra[0])-$($file.Name)") -Force }
     }
     $profileRoot = Join-Path $HostPath "BepInEx\config\GK2Coop\players\$slot"
     if (Test-Path -LiteralPath $profileRoot) { Move-Item -LiteralPath $profileRoot -Destination (Join-Path $OutputPath 'host-player-profiles') -Force }

@@ -194,9 +194,8 @@ namespace GK2Coop
         private static void UpdateBodies(string local)
         {
             object localData = CoopDiagnostics.GetStatic(Plugin.FindGameType("MainGame"), "PlayerData");
-            Type bodyType = Plugin.FindGameType("PlayerPhysicalBody");
             var seen = new HashSet<int>();
-            foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType))
+            foreach (Component body in CoopBodies.All())
             {
                 if (body == null || !body.gameObject.scene.IsValid())
                 {

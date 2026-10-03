@@ -160,8 +160,7 @@ namespace GK2Coop
 
         private static void DrawRemoteBodies(object local)
         {
-            Type bodyType = Plugin.FindGameType("PlayerPhysicalBody");
-            foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType))
+            foreach (Component body in CoopBodies.All())
             {
                 if (body == null || !body.gameObject.activeInHierarchy)
                 {

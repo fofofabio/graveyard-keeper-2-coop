@@ -579,6 +579,37 @@ public sealed class GameplayProbe : BaseUnityPlugin
                    " frameMs=" + (Time.smoothDeltaTime * 1000f).ToString("F1", System.Globalization.CultureInfo.InvariantCulture) +
                    " objects=" + objects + " time=" + Time.realtimeSinceStartup.ToString("F0", System.Globalization.CultureInfo.InvariantCulture);
         }
+        if (args[0] == "scan-cost")
+        {
+            // What finding objects of a type costs here (scan-cost|PlayerPhysicalBody): the whole
+            // memory, the scenes with inactive objects, the active ones; each the median of three.
+            Type type = Named(args[1]);
+            var inv = System.Globalization.CultureInfo.InvariantCulture;
+            Func<Func<int>, string> time = find =>
+            {
+                var runs = new double[3];
+                int found = 0;
+                for (int i = 0; i < 3; i++)
+                {
+                    var watch = System.Diagnostics.Stopwatch.StartNew();
+                    found = find();
+                    runs[i] = watch.Elapsed.TotalMilliseconds;
+                }
+                Array.Sort(runs);
+                return found + " in " + runs[1].ToString("0.00", inv) + " ms";
+            };
+            return "SCAN-COST " + args[1] +
+                   " all=" + time(() => Resources.FindObjectsOfTypeAll(type).Length) +
+                   "; scenes+inactive=" + time(() => UnityEngine.Object.FindObjectsByType(type, FindObjectsInactive.Include, FindObjectsSortMode.None).Length) +
+                   "; active=" + time(() => UnityEngine.Object.FindObjectsByType(type, FindObjectsInactive.Exclude, FindObjectsSortMode.None).Length) +
+                   "; monobehaviours=" + time(() => Resources.FindObjectsOfTypeAll(typeof(MonoBehaviour)).Length) +
+                   "; objects=" + time(() => Resources.FindObjectsOfTypeAll(typeof(UnityEngine.Object)).Length);
+        }
+        if (args[0] == "perf")
+        {
+            // The mod's profiler ([Diagnostics] Profiler): totals since the last reset; "perf|reset", "perf|last".
+            return "PERF " + T("GK2Coop.CoopProfiler").GetMethod("ReportForTest", Flags).Invoke(null, new object[] { args.Length > 1 ? args[1] : string.Empty });
+        }
         if (args[0] == "pause-coop")
         {
             // The pause menu's co-op entry: describe, or open the pause menu.

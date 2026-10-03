@@ -86,10 +86,12 @@ namespace GK2Coop
 
         private static IEnumerable<PlayerController> OtherControllers()
         {
+            // A player's controller sits on their body (the game's InitNetworkPlayer).
             PlayerController local = MainGame.PlayerController;
-            foreach (PlayerController controller in Resources.FindObjectsOfTypeAll<PlayerController>())
+            foreach (Component body in CoopBodies.All())
             {
-                if (controller != null && controller != local && controller.gameObject.scene.IsValid())
+                PlayerController controller = body.GetComponent<PlayerController>();
+                if (controller != null && controller != local)
                 {
                     yield return controller;
                 }

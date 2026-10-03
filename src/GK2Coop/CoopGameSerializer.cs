@@ -18,11 +18,19 @@ namespace GK2Coop
         private static MethodInfo serializeValue;
         private static MethodInfo deserializeValue;
         private static object binaryFormat;
+        // The serializer for each type, made once (the stations' inventories go through here every second).
+        private static readonly System.Collections.Generic.Dictionary<Type, MethodInfo> serializeFor = new System.Collections.Generic.Dictionary<Type, MethodInfo>();
 
         internal static byte[] Serialize(object value)
         {
             Resolve();
-            byte[] body = (byte[])serializeValue.MakeGenericMethod(value.GetType()).Invoke(null, new[] { value, binaryFormat, null });
+            Type type = value.GetType();
+            if (!serializeFor.TryGetValue(type, out MethodInfo serialize))
+            {
+                serialize = serializeValue.MakeGenericMethod(type);
+                serializeFor[type] = serialize;
+            }
+            byte[] body = (byte[])serialize.Invoke(null, new[] { value, binaryFormat, null });
             byte[] result = new byte[Marker.Length + body.Length];
             Buffer.BlockCopy(Marker, 0, result, 0, Marker.Length);
             Buffer.BlockCopy(body, 0, result, Marker.Length, body.Length);

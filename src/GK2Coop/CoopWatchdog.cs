@@ -293,13 +293,7 @@ namespace GK2Coop
 
         private static IEnumerable<Component> Bodies()
         {
-            Type bodyType = Plugin.FindGameType("PlayerPhysicalBody");
-            if (bodyType == null)
-            {
-                return Enumerable.Empty<Component>();
-            }
-            return Resources.FindObjectsOfTypeAll(bodyType).OfType<Component>()
-                .Where(body => body != null && body.gameObject.scene.IsValid());
+            return CoopBodies.All();
         }
 
         /// <summary>Destroys every body drawing this player. Never our own.</summary>

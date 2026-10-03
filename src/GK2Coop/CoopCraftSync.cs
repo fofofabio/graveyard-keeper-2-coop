@@ -944,22 +944,24 @@ namespace GK2Coop
 
         private static IEnumerable<KeyValuePair<string, object>> SharedStations()
         {
-            object mainGame = CoopDiagnostics.GetStatic(Plugin.FindGameType("MainGame"), "Instance");
-            object save = mainGame == null ? null : CoopDiagnostics.GetMember(mainGame, "GameSave");
-            object world = save == null ? null : CoopDiagnostics.GetMember(save, "worldData");
-            if (!(CoopDiagnostics.GetMember(world, "gameSceneDataList") is System.Collections.IEnumerable scenes))
+            // Read directly, not by reflection: on the host this goes through every object of the
+            // world every second.
+            MainGame mainGame = MainGame.Instance;
+            GameSave save = mainGame == null ? null : mainGame.GameSave;
+            List<GameSceneData> scenes = save == null || save.worldData == null ? null : save.worldData.gameSceneDataList;
+            if (scenes == null)
             {
                 yield break;
             }
-            foreach (object scene in scenes)
+            foreach (GameSceneData scene in scenes)
             {
-                if (!(CoopDiagnostics.GetMember(scene, "wgoDataList") is System.Collections.IEnumerable wgos))
+                if (scene == null || scene.wgoDataList == null)
                 {
                     continue;
                 }
-                foreach (object wgo in wgos)
+                foreach (WgoData wgo in scene.wgoDataList)
                 {
-                    object component = CoopDiagnostics.GetMember(wgo, "CraftComponent");
+                    CraftComponent component = wgo == null ? null : wgo.CraftComponent;
                     if (component != null && IsSharedStation(component, out _))
                     {
                         yield return new KeyValuePair<string, object>(WgoId(wgo), component);
@@ -1044,9 +1046,18 @@ namespace GK2Coop
             return Convert.ToString(CoopDiagnostics.GetMember(CoopDiagnostics.GetMember(wgo, "UniqueId"), "Id"));
         }
 
+        // The serializer for each station type, made once: every shared station goes through it every second.
+        private static readonly Dictionary<Type, MethodInfo> serializeFor = new Dictionary<Type, MethodInfo>();
+
         private static byte[] Serialize(object component)
         {
-            return (byte[])SerializerMethod("Serialize").MakeGenericMethod(component.GetType()).Invoke(null, new[] { component });
+            Type type = component.GetType();
+            if (!serializeFor.TryGetValue(type, out MethodInfo serialize))
+            {
+                serialize = SerializerMethod("Serialize").MakeGenericMethod(type);
+                serializeFor[type] = serialize;
+            }
+            return (byte[])serialize.Invoke(null, new[] { component });
         }
 
         private static MethodInfo SerializerMethod(string name)

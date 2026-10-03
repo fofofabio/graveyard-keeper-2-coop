@@ -3,7 +3,7 @@ name: Problem report
 about: Tell us about a problem in a co-op game
 ---
 
-**Version of the mod** (the Co-op menu shows it):
+**Version of the mod** (the Co-op window on the main menu shows it):
 
 **Number of players and type of connection** (Steam or address):
 

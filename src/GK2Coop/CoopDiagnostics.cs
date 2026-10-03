@@ -45,6 +45,9 @@ namespace GK2Coop
             public int Suppressed;
         }
 
+        /// <summary>[Diagnostics] DetailedLogs: the detailed logs are written (tests, looking into a problem).</summary>
+        internal static bool Detailed { get; set; }
+
         internal static bool CensusEnabled { get; set; }
         internal static bool TelemetryEnabled { get; set; }
 
@@ -97,7 +100,8 @@ namespace GK2Coop
                     return;
                 }
                 bool isFailure = type == LogType.Error || type == LogType.Exception || type == LogType.Assert;
-                if (!isFailure && !InterestingFragments.Any(fragment => condition.IndexOf(fragment, StringComparison.Ordinal) >= 0))
+                // The game's informational messages only with the detailed logs; its errors always.
+                if (!isFailure && (!Detailed || !InterestingFragments.Any(fragment => condition.IndexOf(fragment, StringComparison.Ordinal) >= 0)))
                 {
                     return;
                 }
@@ -274,10 +278,7 @@ namespace GK2Coop
             var shape = new StringBuilder();
             var positions = new StringBuilder();
             int index = 0;
-            foreach (Component body in Resources.FindObjectsOfTypeAll(bodyType)
-                         .OfType<Component>()
-                         .Where(candidate => candidate.gameObject.scene.IsValid())
-                         .OrderBy(candidate => candidate.GetInstanceID()))
+            foreach (Component body in CoopBodies.All().OrderBy(candidate => candidate.GetInstanceID()))
             {
                 index++;
                 GameObject go = body.gameObject;
@@ -423,13 +424,7 @@ namespace GK2Coop
             {
                 return null;
             }
-            PropertyInfo property = target.GetType().GetProperty(name, Any);
-            if (property != null)
-            {
-                return property.GetValue(target, null);
-            }
-            FieldInfo field = target.GetType().GetField(name, Any);
-            return field == null ? null : field.GetValue(target);
+            return Read(Member(target.GetType(), name, false), target);
         }
 
         internal static object GetStatic(Type type, string name)
@@ -438,13 +433,64 @@ namespace GK2Coop
             {
                 return null;
             }
-            PropertyInfo property = type.GetProperty(name, AnyStatic);
-            if (property != null)
+            return Read(Member(type, name, true), null);
+        }
+
+        private static object Read(MemberInfo member, object target)
+        {
+            if (member is PropertyInfo property)
             {
-                return property.GetValue(null, null);
+                return property.GetValue(target, null);
             }
-            FieldInfo field = type.GetField(name, AnyStatic);
-            return field == null ? null : field.GetValue(null);
+            return member is FieldInfo field ? field.GetValue(target) : null;
+        }
+
+        private static readonly Dictionary<MemberKey, MemberInfo> memberCache = new Dictionary<MemberKey, MemberInfo>();
+
+        private struct MemberKey : IEquatable<MemberKey>
+        {
+            internal Type Type;
+            internal string Name;
+            internal bool Static;
+
+            public bool Equals(MemberKey other)
+            {
+                return Type == other.Type && Static == other.Static && string.Equals(Name, other.Name, StringComparison.Ordinal);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is MemberKey other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return (Type.GetHashCode() * 397) ^ Name.GetHashCode() ^ (Static ? 1 : 0);
+            }
+        }
+
+        /// <summary>
+        /// The property (else the field) of that name, looked up once per type: the ticks and the
+        /// per-frame station checks read the same members over and over, and each read searched
+        /// the type's members again.
+        /// </summary>
+        private static MemberInfo Member(Type type, string name, bool isStatic)
+        {
+            var key = new MemberKey { Type = type, Name = name, Static = isStatic };
+            lock (memberCache)
+            {
+                if (memberCache.TryGetValue(key, out MemberInfo cached))
+                {
+                    return cached;
+                }
+            }
+            BindingFlags flags = isStatic ? AnyStatic : Any;
+            MemberInfo found = (MemberInfo)type.GetProperty(name, flags) ?? type.GetField(name, flags);
+            lock (memberCache)
+            {
+                memberCache[key] = found;
+            }
+            return found;
         }
 
         private sealed class ReferenceComparer : IEqualityComparer<object>

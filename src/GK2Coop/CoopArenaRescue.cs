@@ -26,6 +26,8 @@ namespace GK2Coop
         private static PropertyInfo boundsProperty;
         private static PropertyInfo returnProperty;
         private static float nextCheck;
+        private static UnityEngine.Object[] levels;
+        private static bool levelsDue = true;
         private static string insideLevel;
         private static int rescued;
 
@@ -68,7 +70,7 @@ namespace GK2Coop
             }
             PropertyInfo centerOf = boxType.GetProperty("center");
             PropertyInfo sizeOf = boxType.GetProperty("size");
-            foreach (UnityEngine.Object found in Resources.FindObjectsOfTypeAll(levelType))
+            foreach (UnityEngine.Object found in Levels())
             {
                 if (!(found is Component level) || level == null || !level.gameObject.scene.IsValid() ||
                     !(collidersField.GetValue(level) is System.Collections.IEnumerable colliders))
@@ -117,7 +119,7 @@ namespace GK2Coop
                 {
                     continue;
                 }
-                foreach (UnityEngine.Object found in Resources.FindObjectsOfTypeAll(levelType))
+                foreach (UnityEngine.Object found in Levels())
                 {
                     if (found is Component level && level != null && level.gameObject.scene.IsValid() && Convert.ToString(CoopDiagnostics.GetMember(level, "id")) == area.Key)
                     {
@@ -130,9 +132,25 @@ namespace GK2Coop
             return null;
         }
 
+        /// <summary>
+        /// The fighting levels, found again after each scene load: a search of all memory, 10 ms
+        /// in a day-18 world, which this check made every 2 s.
+        /// </summary>
+        private static UnityEngine.Object[] Levels()
+        {
+            if (levelsDue || levels == null)
+            {
+                levelsDue = false;
+                levels = Resources.FindObjectsOfTypeAll(levelType);
+            }
+            return levels;
+        }
+
         internal static void Init(ManualLogSource source)
         {
             log = source;
+            UnityEngine.SceneManagement.SceneManager.sceneLoaded += (scene, mode) => levelsDue = true;
+            UnityEngine.SceneManagement.SceneManager.sceneUnloaded += scene => levelsDue = true;
             levelType = Plugin.FindGameType("FightingLevel");
             boundsProperty = levelType == null ? null : AccessTools.Property(levelType, "LevelBounds");
             returnProperty = levelType == null ? null : AccessTools.Property(levelType, "FightbackGdPointId");

@@ -166,10 +166,9 @@ namespace GK2Coop
                 return;
             }
 
-            foreach (Component candidate in Resources.FindObjectsOfTypeAll(body.GetType()).OfType<Component>())
+            foreach (Component candidate in CoopBodies.All())
             {
                 if (ReferenceEquals(candidate, remote) ||
-                    !candidate.gameObject.scene.IsValid() ||
                     !ReferenceEquals(CoopDiagnostics.GetMember(candidate, "playerData"), localPlayerData))
                 {
                     continue;
