@@ -118,6 +118,48 @@ public sealed class GameplayProbe : BaseUnityPlugin
     private float nextRealInputLog;
     private int realInputs;
     private Vector3? lastMouse;
+    // The test games run on their own desktop, which keeps the user's keyboard and mouse away, but
+    // the game's input (Rewired) reads controllers whatever has the focus: someone playing with a
+    // pad pressed buttons in the test games (menus closed, games quit). Every real controller, the
+    // keyboard and the mouse are switched off in Rewired here, again for any that is added; the
+    // tests press their buttons inside the game's own input (CoopInput.PressForTest), not through a
+    // device. GK2COOP_TEST_REAL_INPUT=1 keeps them.
+    private float nextIsolate;
+    private int isolated;
+    private static readonly bool keepRealInput = Environment.GetEnvironmentVariable("GK2COOP_TEST_REAL_INPUT") == "1";
+    private void IsolateDevices()
+    {
+        if (keepRealInput || Time.unscaledTime < nextIsolate) return;
+        nextIsolate = Time.unscaledTime + 1f;
+        try
+        {
+            Type reInput = T("Rewired.ReInput");
+            if (reInput == null || !Convert.ToBoolean(reInput.GetProperty("isReady", BindingFlags.Public | BindingFlags.Static)?.GetValue(null, null) ?? false)) return;
+            object helper = reInput.GetProperty("controllers", BindingFlags.Public | BindingFlags.Static)?.GetValue(null, null);
+            if (helper == null) return;
+            var found = new System.Collections.Generic.List<object>();
+            if (helper.GetType().GetProperty("Joysticks")?.GetValue(helper, null) is IEnumerable pads) found.AddRange(pads.Cast<object>());
+            foreach (string single in new[] { "Keyboard", "Mouse" })
+            {
+                object device = helper.GetType().GetProperty(single)?.GetValue(helper, null);
+                if (device != null) found.Add(device);
+            }
+            foreach (object device in found)
+            {
+                PropertyInfo enabled = device.GetType().GetProperty("enabled");
+                if (enabled == null || !Convert.ToBoolean(enabled.GetValue(device, null))) continue;
+                enabled.SetValue(device, false, null);
+                isolated++;
+                Logger.LogInfo("Test isolation: switched off the real input device " + (device.GetType().GetProperty("name")?.GetValue(device, null) ?? device.GetType().Name) + " (" + isolated + " so far).");
+            }
+        }
+        catch (Exception ex)
+        {
+            nextIsolate = Time.unscaledTime + 30f;
+            Logger.LogWarning("Test isolation: " + ex.Message);
+        }
+    }
+
     private void NoticeRealInput()
     {
         try
@@ -144,6 +186,7 @@ public sealed class GameplayProbe : BaseUnityPlugin
     {
         KeepQuiet();
         ApplyTestLanguage();
+        IsolateDevices();
         NoticeRealInput();
         if (heldPose != null)
         {
@@ -1529,6 +1572,135 @@ public sealed class GameplayProbe : BaseUnityPlugin
                 var pos = (Vector3)G(G(player, "position"), "Value");
                 Call(dropSystem, "DropItemAsDropView", item, Convert.ToString(G(player, "currentGameSceneId")), pos + new Vector3(8f, 0f, 0f));
                 return "SPAWN " + Id(item);
+            // Big drops (Workshop report, 5 October 2026): a body, a zombie or a crate on the ground.
+            // "big-make|body|<bodyDef>": a body as a grave digger leaves it (its organs inside);
+            // "big-make|zombie|<bodyDef>": a zombie as a quest's Flow_DropZombie leaves it.
+            case "big-make":
+            {
+                object balance = G(T("GameBalance"), "Me");
+                MethodInfo getBodyDef = balance.GetType().GetMethods(Flags).First(m => m.Name == "GetData" && m.IsGenericMethodDefinition && m.GetParameters().Length == 1 && m.GetParameters()[0].ParameterType == typeof(string)).MakeGenericMethod(T("BodyDef"));
+                object bodyDef = getBodyDef.Invoke(balance, new object[] { args.Length > 2 ? args[2] : "body_zombie_test_5" });
+                object bigItem = bodyDef.GetType().GetMethod("GenerateItem", Type.EmptyTypes).Invoke(bodyDef, null);
+                string bigScene = Convert.ToString(G(player, "currentGameSceneId"));
+                Vector3 bigAt = (Vector3)G(G(player, "position"), "Value") + new Vector3(args[1] == "zombie" ? -2f : 2f, 0f, 1f);
+                if (args[1] == "zombie")
+                {
+                    object zombies = G(T("MainGame"), "ZombieSystemData");
+                    MethodInfo create = zombies.GetType().GetMethod("CreateZombieDrop");
+                    object[] createArgs = create.GetParameters().Select(pi => pi.HasDefaultValue ? pi.DefaultValue : null).ToArray();
+                    createArgs[0] = "zombie"; createArgs[1] = bigAt; createArgs[2] = bigScene; createArgs[3] = bigItem;
+                    create.Invoke(zombies, createArgs);
+                }
+                MethodInfo dropItem = dropSystem.GetType().GetMethods(Flags).First(m => m.Name == "DropItem" && m.GetParameters().Length >= 3 && m.GetParameters()[0].ParameterType.Name == "Item");
+                object[] dropArgs = dropItem.GetParameters().Select(pi => pi.HasDefaultValue ? pi.DefaultValue : null).ToArray();
+                dropArgs[0] = bigItem; dropArgs[1] = bigScene; dropArgs[2] = bigAt;
+                dropItem.Invoke(dropSystem, dropArgs);
+                return "BIG-MAKE " + Id(bigItem) + " " + G(bigItem, "id") + " inner=" + G(bigItem, "InventoryCount");
+            }
+            // Every big, filled or zombie drop: its item, what is inside it and whether its zombie is known.
+            case "big-drops":
+            {
+                var bigLines = new StringBuilder();
+                object zombies = G(T("MainGame"), "ZombieSystemData");
+                MethodInfo getZombie = zombies.GetType().GetMethod("GetZombie");
+                int bigCount = 0;
+                foreach (object drop in drops)
+                {
+                    object dropItemObj = G(drop, "Item");
+                    object def = G(dropItemObj, "Definition");
+                    bool big = Convert.ToString(G(def, "itemSize")) == "Big";
+                    bool linked = Convert.ToBoolean(G(def, "isLinkedToWgo"));
+                    int inner = Convert.ToInt32(G(dropItemObj, "InventoryCount"));
+                    if (!big && !linked && inner == 0) continue;
+                    bigCount++;
+                    string innerIds = string.Join(",", ((IEnumerable)G(dropItemObj, "Inventory")).Cast<object>().Select(i => Convert.ToString(G(i, "id"))).OrderBy(i => i, StringComparer.Ordinal).ToArray());
+                    string zombieState = linked ? (getZombie.Invoke(zombies, new[] { G(dropItemObj, "UniqueId") }) != null ? "known" : "MISSING") : "-";
+                    bigLines.AppendLine("BIG " + Id(drop) + " " + G(dropItemObj, "id") + " size=" + G(def, "itemSize") + " type=" + G(drop, "DropType") +
+                        " scene=" + G(drop, "WorldId") + " inner=" + inner + " [" + innerIds + "] zombie=" + zombieState);
+                }
+                object carried = G(player, "OverheadItems");
+                bigLines.Insert(0, "BIG-DROPS count=" + bigCount + " overhead=" + string.Join(",", ((IEnumerable)carried).Cast<object>().Select(i => G(i, "id") + ":" + Id(i)).ToArray()) + Environment.NewLine);
+                return bigLines.ToString();
+            }
+            // What pressing the interaction key at a big drop does: BigDropInteractionHandler.Interact.
+            case "big-take":
+            {
+                object takeView = FindAll(T("DropView")).Cast<object>().FirstOrDefault(v => Id(G(v, "Data")) == args[1]);
+                if (takeView == null) return "BIG-TAKE noview " + args[1];
+                object handlerObj = G(takeView, "interactionHandler");
+                object taken = Call(handlerObj, "Interact");
+                return "BIG-TAKE " + args[1] + " " + taken + " overhead=" + string.Join(",", ((IEnumerable)G(player, "OverheadItems")).Cast<object>().Select(i => G(i, "id") + ":" + Id(i)).ToArray());
+            }
+            // Carried items (overhead): "overhead-take|<item id or auto>" puts one on this player's head
+            // ("auto": the first big crate or box of the catalogue); "overhead-drop" puts it down;
+            // "overhead-as|<client id>|<item id>" is the host doing it as that joiner (a joiner's work
+            // at a station, run by the host); "overhead" tells what each body shows on its head.
+            case "overhead-take":
+            {
+                string takeId = args[1];
+                if (takeId == "auto")
+                {
+                    takeId = List(G(T("GameBalance"), "Me"), "itemDefs").Cast<object>()
+                        .Where(d => Convert.ToString(G(d, "itemSize")) == "Big" && !Convert.ToBoolean(G(d, "isLinkedToWgo")))
+                        .Select(d => Convert.ToString(G(d, "id")))
+                        .OrderBy(id => id.Contains("crate") ? 0 : id.Contains("box") ? 1 : 2).ThenBy(id => id, StringComparer.Ordinal).First();
+                }
+                Call(player, "AddOverheadItem", Item(takeId, 1));
+                return "OVERHEAD-TAKE " + takeId;
+            }
+            case "overhead-drop":
+                Call(player, "DropOverheadItem");
+                return "OVERHEAD-DROP";
+            case "overhead-as":
+            {
+                Type context = T("GK2Coop.CoopPlayerContext");
+                // "joiner": the first joiner of the host's game.
+                object firstClient = List(save, "clientPlayers").Cast<object>().FirstOrDefault();
+                ulong asClient = args[1] == "joiner" ? (firstClient == null ? 0UL : Convert.ToUInt64(G(firstClient, "clientId"))) : ulong.Parse(args[1]);
+                object shadow = T("GK2Coop.CoopDropSync").GetMethod("ResolvePlayerDataFor", Flags).Invoke(null, new object[] { asClient });
+                if (shadow == null) return "OVERHEAD-AS noplayer";
+                string asId = args[2];
+                Action give = () => Call(G(T("MainGame"), "PlayerData"), "AddOverheadItem", Item(asId, 1));
+                object ok = context.GetMethod("Run", Flags).Invoke(null, new object[] { shadow, null, "probe overhead", give });
+                return "OVERHEAD-AS " + ok + " shadowCarries=" + string.Join(",", ((IEnumerable)G(shadow, "OverheadItems")).Cast<object>().Select(i => Convert.ToString(G(i, "id"))).ToArray());
+            }
+            case "overhead":
+            {
+                var lines = new StringBuilder("OVERHEAD mine=" + string.Join(",", ((IEnumerable)G(player, "OverheadItems")).Cast<object>().Select(i => Convert.ToString(G(i, "id"))).ToArray()) + Environment.NewLine);
+                FieldInfo dropViewField = T("AnimationComponentBase").GetField("dropView", Flags);
+                foreach (object body in FindAll(T("PlayerPhysicalBody")).Cast<object>().Where(b => ((Component)b).gameObject.scene.IsValid()))
+                {
+                    object animation = G(G(body, "playerView"), "PlayerAnimation");
+                    var shownView = animation == null ? null : dropViewField.GetValue(animation) as Component;
+                    bool own = ReferenceEquals(G(body, "playerData"), player);
+                    lines.AppendLine("HEAD " + (own ? "own" : "other") + " shown=" + (shownView != null && shownView.gameObject.activeInHierarchy) +
+                                     " active=" + ((Component)body).gameObject.activeInHierarchy);
+                }
+                return lines.ToString();
+            }
+            // Timed events (GameLogicsSystem): "gamelogics" lists the periodic ones with their next
+            // time; "gamelogic-due|<id>" makes one due now (it runs on the next update where allowed).
+            case "gamelogics":
+            {
+                var lines = new StringBuilder();
+                foreach (object logic in List(G(save, "gameLogicSystemData"), "gameLogics").Cast<object>())
+                {
+                    object def = G(logic, "Definition");
+                    lines.AppendLine("LOGIC " + G(logic, "id") + " start=" + (def == null ? "-" : G(def, "gameLogicStartType")) + " next=" + G(logic, "execDay") + "+" +
+                                     Convert.ToSingle(G(logic, "execTime")).ToString("F3", System.Globalization.CultureInfo.InvariantCulture) +
+                                     " script=" + (def == null ? "" : G(def, "execFlowscriptName")) + " period=" + (def == null ? "" : G(def, "periodTime")));
+                }
+                return lines.ToString();
+            }
+            case "gamelogic-due":
+            {
+                object logic = List(G(save, "gameLogicSystemData"), "gameLogics").Cast<object>().FirstOrDefault(l => Convert.ToString(G(l, "id")) == args[1]);
+                if (logic == null) return "GAMELOGIC-DUE none";
+                object env = G(save, "environmentData");
+                logic.GetType().GetField("execDay", Flags).SetValue(logic, Convert.ToInt32(G(env, "Day")));
+                logic.GetType().GetField("execTime", Flags).SetValue(logic, 0f);
+                return "GAMELOGIC-DUE " + args[1] + " next=" + G(logic, "execDay") + "+0";
+            }
             case "collect":
                 object view = FindAll(T("DropView")).Cast<object>().Single(v => Id(G(v, "Data")) == args[1]);
                 Call(player, "CollectDrop", view);
@@ -1872,6 +2044,48 @@ public sealed class GameplayProbe : BaseUnityPlugin
                         " startable=" + startable + " crafts=" + available.Length);
                 }
                 return lines.ToString();
+            }
+            // Cancel and queue removal as the craft window's buttons do them (Workshop report, 5 October 2026:
+            // a Furnace II queue showed items after a cancel).
+            case "craft-cancel":
+            {
+                object wgo = wgos.First(w => Id(w) == args[1]);
+                object craft = G(wgo, "CraftComponent");
+                if (G(craft, "CurrentCraftElement") != null) Call(craft, "Cancel");
+                return "CRAFT-CANCEL status=" + G(craft, "Status");
+            }
+            // "craft-count|station|index|delta": the furnace window's plus and minus (Count changed in place).
+            case "craft-count":
+            {
+                object wgo = wgos.First(w => Id(w) == args[1]);
+                var queue = List(G(wgo, "CraftComponent"), "CraftElementsQueue").Cast<object>().ToArray();
+                int at = int.Parse(args[2]);
+                if (at >= queue.Length) return "CRAFT-COUNT none queue=" + queue.Length;
+                object element = queue[at];
+                element.GetType().GetProperty("Count").SetValue(element, Convert.ToInt32(G(element, "Count")) + int.Parse(args[3]), null);
+                return "CRAFT-COUNT " + G(element, "CraftId") + "x" + G(element, "Count");
+            }
+            case "craft-remove":
+            {
+                object wgo = wgos.First(w => Id(w) == args[1]);
+                object craft = G(wgo, "CraftComponent");
+                var queue = List(craft, "CraftElementsQueue").Cast<object>().ToArray();
+                int at = int.Parse(args[2]);
+                if (at >= queue.Length) return "CRAFT-REMOVE none queue=" + queue.Length;
+                Call(craft, "RemoveFromQueue", queue[at], true);
+                return "CRAFT-REMOVE queue=" + List(craft, "CraftElementsQueue").Cast<object>().Count();
+            }
+            // What a station holds: its queue (recipe x count), the running craft's input, its craft inventory.
+            case "station-items":
+            {
+                object wgo = wgos.First(w => Id(w) == args[1]);
+                object craft = G(wgo, "CraftComponent");
+                object current = G(craft, "CurrentCraftElement");
+                return "STATION-ITEMS status=" + G(craft, "Status") +
+                       " queue=" + string.Join(",", List(craft, "CraftElementsQueue").Cast<object>().Select(e => G(e, "CraftId") + "x" + G(e, "Count")).ToArray()) +
+                       " cur=" + (current == null ? "-" : G(current, "CraftId") + "x" + G(current, "Count")) +
+                       " input=" + (current == null ? "-" : string.Join(",", ((IEnumerable)G(current, "CraftInput")).Cast<object>().Select(i => G(i, "id") + "x" + G(i, "Count")).ToArray())) +
+                       " inventory=" + (G(wgo, "CraftInventory") == null ? "-" : Items(G(wgo, "CraftInventory")));
             }
             case "station-recipes":
             {
@@ -2589,6 +2803,25 @@ public sealed class GameplayProbe : BaseUnityPlugin
                 return "ADDRES " + args[1] + " " + before + "->" + addTo.GetType().GetMethod("Get", new[] { typeof(string), typeof(float) }).Invoke(addTo, new object[] { args[1], 0f });
             }
             // Shared action gems, weather and chat (0.46).
+            // The red, green and blue points on the ground (TechPointDropData), all scenes.
+            case "points":
+            {
+                var all = scenes.SelectMany(s => List(s, "techPointDrops").Cast<object>()).ToArray();
+                var activeViews = (IList)T("TechPointDrop").GetField("activeDrops", Flags).GetValue(null);
+                return "POINTS total=" + all.Length + " " + string.Join(" ", all.GroupBy(d => Convert.ToString(G(d, "type"))).OrderBy(g => g.Key).Select(g => g.Key + "=" + g.Count()).ToArray()) +
+                       " views=" + (activeViews == null ? -1 : activeViews.Count);
+            }
+            // "points-drop|r|g|b|distance": what a finished craft does (DropSystem.DropTechPoints), away from the player.
+            case "points-drop":
+            {
+                Vector3 at = (Vector3)G(G(player, "position"), "Value") + new Vector3(float.Parse(args[4], System.Globalization.CultureInfo.InvariantCulture), 0f, 0f);
+                Call(dropSystem, "DropTechPoints", at, int.Parse(args[1]), int.Parse(args[2]), int.Parse(args[3]));
+                return "POINTS-DROP at=" + at.ToString("F1");
+            }
+            // What the game does at the end of a day: every point and resource drop to this player.
+            case "points-collect":
+                Call(dropSystem, "CollectAllGameResDropsToPlayer", 0.2f);
+                return "POINTS-COLLECT";
             case "gems":
                 return "GEMS " + T("GK2Coop.CoopSharedGems").GetMethod("Describe", Flags).Invoke(null, null);
             case "weather":

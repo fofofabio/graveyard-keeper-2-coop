@@ -188,6 +188,9 @@ namespace GK2Coop
             messaging.RegisterNamedMessageHandler(CoopDropSync.PickupRequestMessage, CoopDropSync.ReceivePickupRequest);
             messaging.RegisterNamedMessageHandler(CoopDropSync.PickupResultMessage, CoopDropSync.ReceivePickupResult);
             messaging.RegisterNamedMessageHandler(CoopDropSync.MergeMessage, CoopDropSync.ReceiveMerge);
+            messaging.RegisterNamedMessageHandler(CoopDropSync.TakenMessage, CoopDropSync.ReceiveTaken);
+            messaging.RegisterNamedMessageHandler(CoopTechPointSync.SpawnMessage, CoopTechPointSync.ReceiveSpawn);
+            messaging.RegisterNamedMessageHandler(CoopTechPointSync.TakenMessage, CoopTechPointSync.ReceiveTaken);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RequestMessage, CoopContainerSync.ReceiveRequest);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.StateMessage, CoopContainerSync.ReceiveState);
             messaging.RegisterNamedMessageHandler(CoopContainerSync.RichMessage, CoopContainerSync.ReceiveRich);
@@ -209,6 +212,8 @@ namespace GK2Coop
             messaging.RegisterNamedMessageHandler(CoopSleepSync.SleepMessage, CoopSleepSync.Receive);
             messaging.RegisterNamedMessageHandler(CoopSleepSync.NightMessage, CoopSleepSync.ReceiveNight);
             messaging.RegisterNamedMessageHandler(CoopAppearanceSync.AppearanceMessage, CoopAppearanceSync.Receive);
+            messaging.RegisterNamedMessageHandler(CoopOverheadSync.StateMessage, CoopOverheadSync.Receive);
+            messaging.RegisterNamedMessageHandler(CoopOverheadSync.GiveMessage, CoopOverheadSync.ReceiveGive);
             messaging.RegisterNamedMessageHandler(CoopVendorSync.VendorMessage, CoopVendorSync.Receive);
             messaging.RegisterNamedMessageHandler(CoopKnowledgeSync.KnowledgeMessage, CoopKnowledgeSync.Receive);
             messaging.RegisterNamedMessageHandler(CoopSceneSync.SceneMessage, CoopSceneSync.Receive);
@@ -251,6 +256,9 @@ namespace GK2Coop
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PickupRequestMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.PickupResultMessage);
                 messaging.UnregisterNamedMessageHandler(CoopDropSync.MergeMessage);
+                messaging.UnregisterNamedMessageHandler(CoopDropSync.TakenMessage);
+                messaging.UnregisterNamedMessageHandler(CoopTechPointSync.SpawnMessage);
+                messaging.UnregisterNamedMessageHandler(CoopTechPointSync.TakenMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RequestMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.StateMessage);
                 messaging.UnregisterNamedMessageHandler(CoopContainerSync.RichMessage);
@@ -272,6 +280,8 @@ namespace GK2Coop
                 messaging.UnregisterNamedMessageHandler(CoopSleepSync.SleepMessage);
                 messaging.UnregisterNamedMessageHandler(CoopSleepSync.NightMessage);
                 messaging.UnregisterNamedMessageHandler(CoopAppearanceSync.AppearanceMessage);
+                messaging.UnregisterNamedMessageHandler(CoopOverheadSync.StateMessage);
+                messaging.UnregisterNamedMessageHandler(CoopOverheadSync.GiveMessage);
                 messaging.UnregisterNamedMessageHandler(CoopVendorSync.VendorMessage);
                 messaging.UnregisterNamedMessageHandler(CoopKnowledgeSync.KnowledgeMessage);
                 messaging.UnregisterNamedMessageHandler(CoopSceneSync.SceneMessage);

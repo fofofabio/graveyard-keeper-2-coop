@@ -57,6 +57,7 @@ namespace GK2Coop
             int deaths = 0;
             int containers = 0;
             int drops = 0;
+            int points = 0;
             int quests = 0;
             int builds = 0;
             int zombies = 0;
@@ -71,6 +72,7 @@ namespace GK2Coop
                 zombies = CoopZombieSync.SendSnapshotTo(clientId);
                 containers = CoopContainerSync.SendSnapshotTo(clientId);
                 drops = CoopDropSync.SendSnapshotTo(clientId);
+                points = CoopTechPointSync.SendSnapshotTo(clientId);
                 quests = CoopQuestSync.SendSnapshotTo(clientId);
                 // A night already passing: the message goes out only when it starts.
                 CoopSleepSync.SendNightTo(clientId);
@@ -83,7 +85,7 @@ namespace GK2Coop
             }
 
             LastSummary = deaths + " deaths, " + containers + " containers, " +
-                          drops + " drops, " + quests + " quest transitions, " + builds + " building changes, " + zombies + " zombie changes";
+                          drops + " drops, " + points + " points, " + quests + " quest transitions, " + builds + " building changes, " + zombies + " zombie changes";
             log.LogInfo("Sent the join snapshot to client " + clientId + ": " + LastSummary + ".");
         }
     }

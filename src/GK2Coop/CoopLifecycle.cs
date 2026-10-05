@@ -163,6 +163,8 @@ namespace GK2Coop
             });
             Run("chest bookkeeping", CoopContainerSync.ResetSession);
             Run("drop bookkeeping", CoopDropSync.ResetSession);
+            Run("point bookkeeping", CoopTechPointSync.ResetSession);
+            Run("carried items", CoopOverheadSync.ResetSession);
             Run("death bookkeeping", CoopWorldSync.ResetSession);
             Run("quest bookkeeping", CoopQuestSync.ResetSession);
             Run("session state", CoopSession.Reset);

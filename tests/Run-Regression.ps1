@@ -75,6 +75,7 @@ $runs = @(
     Run 'late' @{ LateWatchExperiment = $true } ($sceneFiles + 'CoopPauseEntry') 2
     Run 'late-ans' @{ LateWatchExperiment = $true; LateWithAnswer = $true } ($sceneFiles + 'CoopPauseEntry') 6.8
     Run 'speech' @{ SpeechExperiment = $true } @('CoopSpeechShare', 'CoopHud') 1.9
+    Run 'fightstuck' @{ FightStuckExperiment = $true } @('CoopArenaRescue') 1.5
     Run 'sermon' @{ SceneShareExperiment = $true; ShareScene = 'System_Pray:sermon_start' } $sceneFiles 2.5
     Run 'worklock' @{ WorkLockExperiment = $true } @('CoopWorkLock') 1.6
     Run 'tabs' @{ TabsExperiment = $true } @('CoopKnowledgeSync', 'CoopPauseEntry') 1.5
@@ -99,6 +100,11 @@ $runs = @(
     Run 'zombie-work' @{ ZombieWorkExperiment = $true } @('CoopZombieSync') 3 -Full
     Run 'zombie-out' @{ ZombieOutputPickupExperiment = $true } @('CoopZombieSync', 'CoopDropSync') 3 -Full
     Run 'zombie-grab' @{ ZombiePickupConflictExperiment = $true } @('CoopZombieSync', 'CoopDropSync') 3 -Full
+    Run 'bigdrops' @{ BigDropExperiment = $true } @('CoopDropSync', 'CoopZombieSync') 3 -Full
+    Run 'overhead' @{ OverheadExperiment = $true } @('CoopOverheadSync', 'CoopPlayerContext') 2
+    Run 'gamelogic' @{ GameLogicExperiment = $true } @('CoopSceneShare') 1.5
+    Run 'points' @{ PointsExperiment = $true } @('CoopTechPointSync', 'CoopSharedGems') 3 -Full
+    Run 'craftcancel' @{ CraftCancelExperiment = $true } @('CoopCraftSync') 3 -Full
     Run 'pausesync' @{ PauseExperiment = $true } @('CoopPauseSync') 3 -Full
     Run 'conveyor' @{ ConveyorExperiment = $true; PorterExperiment = $true } @('CoopConveyorSync') 3 -Full
     Run 'rejoin' @{ ProfileRejoin = $true } @('CoopPlayerProfiles', 'CoopAppearanceSync', 'CoopStableIds') 3 -Full

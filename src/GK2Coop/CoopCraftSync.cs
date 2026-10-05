@@ -52,7 +52,8 @@ namespace GK2Coop
             Add = 0,
             Remove = 1,
             Cancel = 2,
-            Work = 3
+            Work = 3,
+            SetCount = 4
         }
 
         private sealed class Owner
@@ -107,6 +108,9 @@ namespace GK2Coop
                 Patch(harmony, AccessTools.Method(component, "Update", new[] { typeof(float) }), nameof(SimulationPrefix));
                 Patch(harmony, AccessTools.Method(component, "UpdateManual", new[] { typeof(int) }), nameof(UpdateManualPrefix));
                 Patch(harmony, AccessTools.Method(component, "TryContinueFromQueue"), nameof(TryContinuePrefix));
+                var countChanged = new HarmonyMethod(typeof(CoopCraftSync).GetMethod(nameof(CountChangedPostfix), BindingFlags.Static | BindingFlags.NonPublic));
+                harmony.Patch(AccessTools.PropertySetter(elementBase, "Count"), postfix: countChanged);
+                harmony.Patch(AccessTools.PropertySetter(elementBase, "IsInfinite"), postfix: countChanged);
                 MethodInfo take = Plugin.FindGameType("Inventory").GetMethods(BindingFlags.Instance | BindingFlags.Public)
                     .FirstOrDefault(m => m.Name == "RemoveItemById" && m.GetParameters().Length == 5);
                 if (take == null) throw new MissingMethodException("Inventory", "RemoveItemById");
@@ -269,6 +273,75 @@ namespace GK2Coop
             }
             SendRequest(Op.Cancel, wgo, string.Empty, 0, false, -1);
             return false;
+        }
+
+        private static readonly Dictionary<object, KeyValuePair<WgoData, int>> queueIndex = new Dictionary<object, KeyValuePair<WgoData, int>>();
+        private static float queueIndexBuilt = -10f;
+
+        /// <summary>
+        /// The craft windows change a queued craft's count in place (<c>Count++</c>, <c>Count--</c>,
+        /// the furnace's plus and minus, the infinite switch), not through a queue call. On a joiner
+        /// that changed its own copy only: the host kept the old count, and the two queues went
+        /// apart (Workshop report, 5 October 2026: a Furnace II queue messed up). The new count goes
+        /// to the host, which runs the station.
+        /// </summary>
+        private static void CountChangedPostfix(CraftElementBase __instance)
+        {
+            if (!Enabled || applying || __instance == null || !IsClient())
+            {
+                return;
+            }
+            try
+            {
+                if (!queueIndex.TryGetValue(__instance, out KeyValuePair<WgoData, int> place) && Time.unscaledTime - queueIndexBuilt > 0.5f)
+                {
+                    BuildQueueIndex();
+                    queueIndex.TryGetValue(__instance, out place);
+                }
+                if (place.Key == null)
+                {
+                    return;
+                }
+                SendRequest(Op.SetCount, place.Key, __instance.CraftId, __instance.Count, __instance.IsInfinite, place.Value);
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Craft sync: could not send a changed craft count: " + Inner(ex).Message);
+            }
+        }
+
+        private static void BuildQueueIndex()
+        {
+            queueIndex.Clear();
+            queueIndexBuilt = Time.unscaledTime;
+            MainGame mainGame = MainGame.Instance;
+            List<GameSceneData> scenes = mainGame?.GameSave?.worldData?.gameSceneDataList;
+            if (scenes == null)
+            {
+                return;
+            }
+            foreach (GameSceneData scene in scenes)
+            {
+                if (scene?.wgoDataList == null)
+                {
+                    continue;
+                }
+                foreach (WgoData wgo in scene.wgoDataList)
+                {
+                    CraftComponent component = wgo?.CraftComponent;
+                    if (component == null || component.CraftElementsQueue == null || component.CraftElementsQueue.Count == 0 || !IsSharedStation(component, out _))
+                    {
+                        continue;
+                    }
+                    for (int i = 0; i < component.CraftElementsQueue.Count; i++)
+                    {
+                        if (component.CraftElementsQueue[i] != null)
+                        {
+                            queueIndex[component.CraftElementsQueue[i]] = new KeyValuePair<WgoData, int>(wgo, i);
+                        }
+                    }
+                }
+            }
         }
 
         /// <summary>The host runs the station; the joiner shows what the host sends.</summary>
@@ -625,6 +698,23 @@ namespace GK2Coop
                         // Ingredients for a craft that starts on this tick are reported by the owner path.
                         RunAsClient(sender, wgo, "craft work", false, () => updateManual.Invoke(component, new object[] { ticks }));
                         break;
+                    case Op.SetCount:
+                    {
+                        var countQueue = (System.Collections.IList)CoopDiagnostics.GetMember(component, "CraftElementsQueue");
+                        var counted = queueIdx >= 0 && queueIdx < countQueue.Count ? countQueue[queueIdx] as CraftElementBase : null;
+                        if (counted == null || counted.CraftId != craftId)
+                        {
+                            log.LogWarning($"Craft sync: {CoopSession.NameFor(sender)} changed the count of {craftId} at place {queueIdx}, which the host's queue no longer has there.");
+                            break;
+                        }
+                        counted.IsInfinite = flag;
+                        // A count down to 0 is followed by the window's own removal, sent as its own request.
+                        if (count > 0)
+                        {
+                            counted.Count = count;
+                        }
+                        break;
+                    }
                     case Op.Cancel:
                         if (CoopDiagnostics.GetMember(component, "CurrentCraftElement") != null)
                         {

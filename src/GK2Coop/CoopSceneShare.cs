@@ -176,6 +176,24 @@ namespace GK2Coop
                     prefix: new HarmonyMethod(typeof(CoopSceneShare), nameof(ControlTaken)));
                 harmony.Patch(AccessTools.Method(typeof(FlowOutput), nameof(FlowOutput.Call)),
                     prefix: new HarmonyMethod(typeof(CoopSceneShare), nameof(FlowCallPrefix)));
+                MethodInfo gameLogics = AccessTools.Method(typeof(GameLogicsSystem), nameof(GameLogicsSystem.CustomUpdate));
+                if (gameLogics != null)
+                {
+                    harmony.Patch(gameLogics, prefix: new HarmonyMethod(typeof(CoopSceneShare), nameof(GameLogicsPrefix)));
+                }
+                else
+                {
+                    log.LogWarning("Scene share: GameLogicsSystem.CustomUpdate not found; a joiner starts timed events too.");
+                }
+                MethodInfo bodyRoll = AccessTools.Method(typeof(GK2.FlowCanvasNodes.Flow_Body), "DoAction");
+                if (bodyRoll != null && BodyRollFail != null)
+                {
+                    harmony.Patch(bodyRoll, prefix: new HarmonyMethod(typeof(CoopSceneShare), nameof(BodyRollPrefix)));
+                }
+                else
+                {
+                    log.LogWarning("Scene share: Flow_Body.DoAction not found; a joiner's donkey may deliver bodies too.");
+                }
                 log.LogInfo("Scene share: players can watch each other's story scenes.");
             }
             catch (Exception ex)
@@ -861,8 +879,73 @@ namespace GK2Coop
         /// Every step of every flow graph passes through here. In a replay, a step whose type is
         /// skipped is not run; its "out" is followed instead, so the scene carries on.
         /// </summary>
+        private static bool gameLogicsNoted;
+
+        /// <summary>
+        /// The game's timed events (<c>GameLogicsSystem</c>: a visitor, Albert bringing three
+        /// zombies in <c>Event_24_Doctor_Zombies</c>, the donkey's delivery) are rolled on every
+        /// machine by its own clock and dice, and each one's zombies and items were then shared:
+        /// three zombies twice (Workshop report, 5 October 2026). They are the host's: the host
+        /// starts them, a joiner can watch the scene (scene share) and gets what it leaves through
+        /// the other syncs.
+        /// </summary>
+        private static bool GameLogicsPrefix()
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (netcode == null || !netcode.IsListening || netcode.IsHost || !CoopDropSync.Enabled)
+            {
+                return true;
+            }
+            if (!gameLogicsNoted)
+            {
+                gameLogicsNoted = true;
+                log.LogInfo("Scene share: timed events are the host's; none start here.");
+            }
+            return false;
+        }
+
+        private static readonly FieldInfo BodyRollFail = AccessTools.Field(typeof(GK2.FlowCanvasNodes.Flow_Body), "fail");
+        private static int bodyRollsSkipped;
+
+        /// <summary>
+        /// The donkey's body delivery (<c>Flow_Body</c> in <c>npc_donkey</c>) rolls on every machine,
+        /// each with its own dice, and each delivered body was then shared: two bodies, or a body
+        /// only one player had asked for (Workshop report, 5 October 2026; seen in the day-58 trace).
+        /// The host's roll decides; a joiner always takes the "no body" way, and the host's body
+        /// reaches it through the drop sync.
+        /// </summary>
+        private static bool BodyRollPrefix(GK2.FlowCanvasNodes.Flow_Body __instance, Flow flow)
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (netcode == null || !netcode.IsListening || netcode.IsHost || !CoopDropSync.Enabled)
+            {
+                return true;
+            }
+            try
+            {
+                if (BodyRollFail.GetValue(__instance) is FlowOutput fail)
+                {
+                    if (bodyRollsSkipped++ < 5)
+                    {
+                        log.LogInfo("Scene share: the donkey's body roll is the host's; none here.");
+                    }
+                    fail.Call(flow);
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Scene share: could not skip the body roll: " + ex.Message);
+            }
+            return true;
+        }
+
         private static bool FlowCallPrefix(FlowOutput __instance, Flow f)
         {
+            if (CoopDiagnostics.Detailed)
+            {
+                TraceWorldSteps(__instance);
+            }
             if (replays.Count == 0 && trailScript == null && stoppedGraphs.Count == 0 && sharedScript == null)
             {
                 return true;
@@ -969,6 +1052,46 @@ namespace GK2Coop
         /// The node a step's handler belongs to: the handler's target, or, for a lambda that
         /// captured locals, the node its closure refers to.
         /// </summary>
+        // Detailed logs: which scripts run world steps on this machine outside a watched scene (each
+        // machine runs the game's own scripts: a delivery or a quest's reward made on both, then
+        // shared by the drop sync, is two).
+        private static readonly HashSet<string> tracedWorldSteps = new HashSet<string>(StringComparer.Ordinal);
+
+        private static void TraceWorldSteps(FlowOutput output)
+        {
+            try
+            {
+                NetworkManager netcode = NetworkManager.Singleton;
+                if (netcode == null || !netcode.IsListening || tracedWorldSteps.Count > 400)
+                {
+                    return;
+                }
+                var pointer = PointerField.GetValue(output) as FlowHandler;
+                if (pointer == null)
+                {
+                    return;
+                }
+                foreach (Delegate target in pointer.GetInvocationList())
+                {
+                    FlowNode node = NodeOf(target);
+                    if (node == null || !Skipped.Contains(node.GetType().Name) || InReplay(node))
+                    {
+                        continue;
+                    }
+                    string graph = node.graph == null ? "?" : node.graph.name;
+                    string key = graph + "|" + node.GetType().Name;
+                    if (tracedWorldSteps.Add(key))
+                    {
+                        log.LogInfo("World step: " + node.GetType().Name + " in " + graph + " on the " + (netcode.IsHost ? "host" : "joiner") +
+                                    (CoopQuestSync.ApplyingRemote ? " (during a mirrored quest change)" : string.Empty) + ".");
+                    }
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         private static FlowNode NodeOf(Delegate handler)
         {
             object target = handler.Target;

@@ -228,7 +228,7 @@ namespace GK2Coop
 
             string outs = string.Join(",", outByType.Select(pair => pair.Key + "=" + pair.Value).ToArray());
             string ins = string.Join(",", inByType.Select(pair => pair.Key + "=" + pair.Value).ToArray());
-            log.LogInfo(CoopPlayerContext.Describe() + "; " + CoopToolSync.Describe() + "; " + CoopDeathLogicFix.Describe() + "; " + CoopWorldSync.Describe() + "; " + CoopQuestSync.Describe() + "; " + CoopDropSync.Describe() + "; " + CoopContainerSync.Describe() + "; " + CoopJoinSnapshot.Describe() + "; " + CoopHostRelay.Describe() + "; " + CoopNetStats.Describe());
+            log.LogInfo(CoopPlayerContext.Describe() + "; " + CoopToolSync.Describe() + "; " + CoopDeathLogicFix.Describe() + "; " + CoopWorldSync.Describe() + "; " + CoopQuestSync.Describe() + "; " + CoopDropSync.Describe() + "; " + CoopTechPointSync.Describe() + "; " + CoopOverheadSync.Describe() + "; " + CoopContainerSync.Describe() + "; " + CoopJoinSnapshot.Describe() + "; " + CoopHostRelay.Describe() + "; " + CoopNetStats.Describe());
             log.LogInfo("Command telemetry: out=" + outCommands + " [" + outs + "]; in=" + inCommands + " [" + ins + "]; " +
                         "move applied=" + moveApplied + ", own-echo=" + moveSkipped + ", dropped-unresolved=" + moveUnresolved +
                         "; last=" + lastMoveDetail);

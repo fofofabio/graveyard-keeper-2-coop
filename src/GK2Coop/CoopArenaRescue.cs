@@ -29,6 +29,11 @@ namespace GK2Coop
         private static UnityEngine.Object[] levels;
         private static bool levelsDue = true;
         private static string insideLevel;
+        // Where the player was at the last check, and a fighting level they walked into (never
+        // brought back from: what the player can walk into, they can walk out of).
+        private static Vector3? lastAt;
+        private static float lastAtTime;
+        private static string walkedInto;
         private static int rescued;
 
         internal static bool Enabled { get; set; } = true;
@@ -109,25 +114,56 @@ namespace GK2Coop
             }
         }
 
+        /// <summary>
+        /// The fighting level whose zone the point is in: inside one of the level's own zone boxes,
+        /// in the box's own frame, height included (3 units above and below for the player's feet).
+        /// Until 0.65.6 the check was one rectangle around all of a level's boxes, flat: in a late
+        /// world it took in ordinary ground next to an island, and players walking there were
+        /// "brought back from the fight area" (Workshop report, 5 October 2026).
+        /// </summary>
+        private static float Flat(Vector3 a, Vector3 b)
+        {
+            return new Vector2(a.x - b.x, a.z - b.z).magnitude;
+        }
+
         private static string FindArea(Vector3 at, out string returnPoint)
         {
             returnPoint = null;
-            foreach (KeyValuePair<string, Bounds> area in Areas())
+            if (levelType == null)
             {
-                Bounds b = area.Value;
-                if (at.x < b.min.x || at.x > b.max.x || at.z < b.min.z || at.z > b.max.z)
+                return null;
+            }
+            FieldInfo collidersField = AccessTools.Field(levelType, "zoneDefineColliders");
+            Type boxType = Type.GetType("UnityEngine.BoxCollider, UnityEngine.PhysicsModule");
+            if (collidersField == null || boxType == null)
+            {
+                return null;
+            }
+            PropertyInfo centerOf = boxType.GetProperty("center");
+            PropertyInfo sizeOf = boxType.GetProperty("size");
+            foreach (UnityEngine.Object found in Levels())
+            {
+                if (!(found is Component level) || level == null || !level.gameObject.scene.IsValid() ||
+                    !(collidersField.GetValue(level) is System.Collections.IEnumerable colliders))
                 {
                     continue;
                 }
-                foreach (UnityEngine.Object found in Levels())
+                foreach (object entry in colliders)
                 {
-                    if (found is Component level && level != null && level.gameObject.scene.IsValid() && Convert.ToString(CoopDiagnostics.GetMember(level, "id")) == area.Key)
+                    if (!(entry is Component box) || box == null || !boxType.IsInstanceOfType(box))
+                    {
+                        continue;
+                    }
+                    Vector3 local = box.transform.InverseTransformPoint(at) - (Vector3)centerOf.GetValue(box, null);
+                    Vector3 half = (Vector3)sizeOf.GetValue(box, null) * 0.5f;
+                    Vector3 scale = box.transform.lossyScale;
+                    float margin = Mathf.Abs(scale.y) > 0.0001f ? 3f / Mathf.Abs(scale.y) : 3f;
+                    if (Mathf.Abs(local.x) <= half.x && Mathf.Abs(local.z) <= half.z && Mathf.Abs(local.y) <= half.y + margin)
                     {
                         returnPoint = returnProperty == null ? null : returnProperty.GetValue(level, null) as string;
-                        break;
+                        return Convert.ToString(CoopDiagnostics.GetMember(level, "id"));
                     }
                 }
-                return area.Key;
             }
             return null;
         }
@@ -170,6 +206,9 @@ namespace GK2Coop
                 LazySingleton<FightingGameController>.Instance.CurrentFightState != FightState.Disabled)
             {
                 insideLevel = null;
+                // A fight or no session in between: the next place is not reached on foot.
+                lastAt = null;
+                walkedInto = null;
                 return;
             }
             try
@@ -180,15 +219,43 @@ namespace GK2Coop
                     return;
                 }
                 Vector3 at = body.transform.position;
+                Vector3? before = lastAt;
+                float elapsed = Time.unscaledTime - lastAtTime;
+                lastAt = at;
+                lastAtTime = Time.unscaledTime;
                 string level = FindArea(at, out string returnPoint);
                 if (level == null)
                 {
                     insideLevel = null;
+                    walkedInto = null;
+                    return;
+                }
+                if (walkedInto == level)
+                {
+                    return;
+                }
+                // Arrived on foot from just outside (a walk covers a few units a second; a teleport
+                // onto an island is a jump): an area a late world lets the player walk into. The
+                // checks are 2 s apart, more when the game is slow, so the reach grows with the time.
+                // Across the ground only: a body that drops or is lifted at a check (seen 21 units
+                // below the ground for a moment) has not jumped across the map.
+                if (insideLevel == null && before.HasValue && FindArea(before.Value, out _) == null &&
+                    Flat(before.Value, at) < Mathf.Clamp(7f * elapsed, 8f, 20f))
+                {
+                    walkedInto = level;
+                    log.LogInfo("Arena rescue: this player walked into " + level + "; not brought back from it.");
                     return;
                 }
                 // Inside at two checks in a row: not the instant of being teleported in to start a fight.
                 if (insideLevel != level)
                 {
+                    if (CoopDiagnostics.Detailed)
+                    {
+                        log.LogInfo("Arena rescue: in " + level + " at " + at.ToString("F1") + "; the check before: " +
+                                    (before.HasValue ? before.Value.ToString("F1") + " in " + (FindArea(before.Value, out _) ?? "none") +
+                                     ", " + Flat(before.Value, at).ToString("F1") + " units across" : "none") +
+                                    ", " + elapsed.ToString("F1") + " s ago, inside before=" + (insideLevel ?? "none") + ".");
+                    }
                     insideLevel = level;
                     return;
                 }

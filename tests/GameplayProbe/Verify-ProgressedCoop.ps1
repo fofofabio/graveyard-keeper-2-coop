@@ -20,6 +20,8 @@ param(
     [string]$ThirdPath = '',
     # Measurement, not a gate: the joiner queues a craft and both peers' station state is recorded.
     [switch]$CraftExperiment,
+    # A joiner cancels the running craft of a shared station and removes a queued one; both sides must agree.
+    [switch]$CraftCancelExperiment,
     # Growing beds are host-run: the beds and every drop must agree before and after crops finish.
     [switch]$GardenExperiment,
     # A world-changing craft (it replaces or removes its object) finished on the joiner must change
@@ -45,6 +47,12 @@ param(
     [switch]$BuildExperiment,
     # Zombies: placed on either side they exist on both, run by the host, mirrored on the joiner.
     [switch]$ZombieExperiment,
+    # Big drops (a body with its organs, a quest zombie) shared whole, and taking one onto the head shared.
+    [switch]$BigDropExperiment,
+    # Carried items shown on the other players' heads; an item the host makes for a joiner goes to the joiner.
+    [switch]$OverheadExperiment,
+    # Timed events (GameLogicsSystem) start on the host only.
+    [switch]$GameLogicExperiment,
     # A zombie brought to a station the way the game does it works there, run by the host and
     # mirrored on the joiner.
     [switch]$ZombieWorkExperiment,
@@ -65,6 +73,8 @@ param(
     [switch]$FightExperiment,
     [switch]$WeatherExperiment,
     [switch]$GemsExperiment,
+    # The points on the ground (red, green, blue): dropped and collected once, for everyone.
+    [switch]$PointsExperiment,
     [switch]$ChatExperiment,
     [switch]$UiKitExperiment,
     [switch]$MenuLookExperiment,
@@ -123,6 +133,13 @@ param(
     # Issue #1: a joiner whose world copy has the character window's tabs locked gets them from
     # the host; the in-game Co-op page shows the version.
     [switch]$TabsExperiment,
+    # A Workshop report: "it crashes in cutscene talks with NPCs". A player in their own story
+    # conversation while the other player's lines arrive (the conversation share shows them over
+    # the NPC there too), and both players in the same conversation at once.
+    [switch]$TalkClashExperiment,
+    # After everything else: the host saves the world as it is now into the test slot (it goes to
+    # the output folder), so the next run can load a world saved during co-op.
+    [switch]$SaveAtEnd,
     [int]$PerfMinutes = 0,
     [string]$PerfPhases = 'idle,walk,busy,yard',
     [switch]$PerfSolo,
@@ -1253,11 +1270,11 @@ try {
                         5 { $r = Line Host "spawn|berry|$k" 'SPAWN'; if ($r) { $made += $k } }
                         6 {
                             $g = GroundDrops Client 'berry' | Get-Random
-                            if ($g) { $who = @('Host', 'Client') | Get-Random; $r = "$who collects " + (Line $who "collect|$($g.Id)" 'COLLECT') } else { $r = 'no drop' }
+                            if ($g) { $who = @('Host', 'Client') | Get-Random; try { $r = "$who collects " + (Line $who "collect|$($g.Id)" 'COLLECT') } catch { $r = "$($who): the drop is gone already (merged or taken)" } } else { $r = 'no drop' }
                         }
                         7 {
                             $g = GroundDrops Client 'berry' | Get-Random
-                            if ($g) { Together "collect|$($g.Id)" "collect|$($g.Id)"; $r = "both collect x$($g.Count)" } else { $r = 'no drop' }
+                            if ($g) { try { Together "collect|$($g.Id)" "collect|$($g.Id)"; $r = "both collect x$($g.Count)" } catch { $r = 'both: the drop is gone already (merged or taken)' } } else { $r = 'no drop' }
                         }
                     }
                     Add-Content -LiteralPath $chaosLog -Value "$chaosRound act=$act k=$k $target :: $r"
@@ -1271,6 +1288,14 @@ try {
                         Verify "9 chaos round $chaosRound"
                     }
                 }
+            }
+            if ($SaveAtEnd) {
+                # The world as the session left it, saved by the host (this branch ends before the
+                # script's own end, where -SaveAtEnd saves for the other runs).
+                foreach ($side in 'Host','Client') { Probe $side 'close-windows' | Out-Null }
+                $saved = (((Probe Host 'save-now') -split "`n") | Where-Object { $_ -like 'SAVE-NOW *' }) -join ''
+                Start-Sleep -Seconds 8
+                Check ($saved -match "SAVE-NOW $slot") "The host saves the co-op world ($saved)"
             }
         }
         if ($RehostExperiment) {
@@ -1654,6 +1679,41 @@ try {
         $log.Add((Probe Client 'weather'))
         [IO.File]::WriteAllText((Join-Path $OutputPath 'weather.txt'), ($log -join "`n"))
     }
+    if ($PointsExperiment) {
+        function Points([string]$Peer) {
+            $p = (((Probe $Peer 'points') -split "`n") | Where-Object { $_ -like 'POINTS *' }) -join ''
+            if ($p -match 'total=(\d+)') { [pscustomobject]@{ Total = [int]$Matches[1]; Text = $p } } else { [pscustomobject]@{ Total = -1; Text = $p } }
+        }
+        function GemLine([string]$Peer) { ((((Probe $Peer 'gems') -split "`n") | Where-Object { $_ -like 'GEMS *' }) -join '') -replace ', changes.*$', '' }
+        $log = New-Object System.Collections.Generic.List[string]
+        $h0 = Points Host; $c0 = Points Client
+        $log.Add("start host $($h0.Text); joiner $($c0.Text)")
+        Check ($h0.Total -ge 0 -and $h0.Total -eq $c0.Total) "Both have the same points on the ground at the start (host $($h0.Text); joiner $($c0.Text))"
+        Probe Host 'points-drop|2|3|1|40' | Out-Null
+        Start-Sleep -Seconds 6
+        $h1 = Points Host; $c1 = Points Client
+        $log.Add("host dropped 6: host $($h1.Text); joiner $($c1.Text)")
+        Check ($h1.Total -eq $h0.Total + 6) "The host's six dropped points lie on the ground ($($h1.Text))"
+        Check ($c1.Total -eq $h1.Total) "The joiner has the host's dropped points too (host $($h1.Total); joiner $($c1.Total))"
+        Probe Client 'points-drop|1|1|1|40' | Out-Null
+        Start-Sleep -Seconds 6
+        $h2 = Points Host; $c2 = Points Client
+        $log.Add("joiner dropped 3: host $($h2.Text); joiner $($c2.Text)")
+        Check ($c2.Total -eq $c1.Total + 3 -and $h2.Total -eq $c2.Total) "The joiner's dropped points reach the host (host $($h2.Total); joiner $($c2.Total))"
+        $gemsBefore = GemLine Host
+        Probe Host 'points-collect' | Out-Null
+        Start-Sleep -Seconds 8
+        $h3 = Points Host; $c3 = Points Client
+        $log.Add("host collected all: host $($h3.Text); joiner $($c3.Text); gems before $gemsBefore; host $(GemLine Host); joiner $(GemLine Client)")
+        Check ($h3.Total -eq 0) "The host collects every point ($($h3.Text))"
+        Check ($c3.Total -eq 0) "Points the host collected are gone for the joiner too, so nobody collects them twice ($($c3.Text))"
+        Probe Client 'points-collect' | Out-Null
+        Start-Sleep -Seconds 6
+        $hg = GemLine Host; $cg = GemLine Client
+        $log.Add("joiner collected the rest: host $((Points Host).Text); joiner $((Points Client).Text); gems host $hg; joiner $cg")
+        Check ($hg -eq $cg) "Both see the same gems after collecting (host $hg; joiner $cg)"
+        [IO.File]::WriteAllLines((Join-Path $OutputPath 'points.txt'), $log)
+    }
     if ($GemsExperiment) {
         function Gems([string]$Peer) {
             $g = (((Probe $Peer 'gems') -split "`n") | Where-Object { $_ -like 'GEMS *' }) -join ''
@@ -1781,6 +1841,76 @@ try {
         [IO.File]::WriteAllText((Join-Path $OutputPath 'bindings.txt'), (Probe Client 'bindings'))
         [IO.File]::WriteAllText((Join-Path $OutputPath 'pad-bindings.txt'), (Probe Client 'pad-bindings'))
         Check (Test-Path (Join-Path $OutputPath 'bindings.txt')) 'Bindings written'
+    }
+    if ($TalkClashExperiment) {
+        function Line([string]$Peer, [string]$Command, [string]$Prefix) { (((Probe $Peer $Command) -split "`n") | Where-Object { $_ -like "$Prefix *" }) -join '' }
+        $clash = New-Object System.Collections.Generic.List[string]
+        # The scene's state from the mod's trace: its last camera and control entries.
+        function SceneDone([string]$Side) {
+            $t = Probe $Side 'cutscene-trace'
+            $cin = [regex]::Matches($t, 'cinematic (on|off)') | Select-Object -Last 1
+            $ctl = [regex]::Matches($t, 'control (taken|returned)') | Select-Object -Last 1
+            return [pscustomobject]@{ Done = ($cin -and $cin.Value -eq 'cinematic off' -and (-not $ctl -or $ctl.Value -eq 'control returned')); Failed = ([regex]::Matches($t, 'dialogue failed')).Count; Text = $t }
+        }
+        function WaitDone([string]$Side, [int]$Seconds) {
+            $deadline = (Get-Date).AddSeconds($Seconds)
+            do { Start-Sleep -Seconds 2; $s = SceneDone $Side } while ((Get-Date) -lt $deadline -and -not $s.Done)
+            return $s
+        }
+        function Alive { @($peers | Where-Object { $_.Process -and -not $_.Process.HasExited }).Count -eq 2 }
+        function Errors([string]$Path) { @(Select-String -LiteralPath (Join-Path $Path 'BepInEx\LogOutput.log') -Pattern '\[game/Exception\]|Cutscene trace: .*Exception|Speech share: could not|Scene share: .*(failed|could not)' -ErrorAction SilentlyContinue | ForEach-Object Line) }
+        foreach ($side in 'Host','Client') { Probe $side 'close-windows' | Out-Null; $clash.Add("$side to Jeffry: " + (Probe $side 'teleport-wgo|npc_jeffry')) }
+        Start-Sleep -Seconds 10
+
+        # 1. The joiner's own conversation with Jeffry; the host does not watch, stands next to them
+        #    and talks: as Jeffry (the line goes over Jeffry in the joiner's world) and as itself.
+        Probe Client 'fire-script-event|Event_124_Village_Money|124_village_money_chest_1' | Out-Null
+        Start-Sleep -Seconds 3
+        $clash.Add("host offered: " + (Line Host 'scene-share' 'SCENE-SHARE'))
+        Probe Host 'scene-answer|decline' | Out-Null
+        for ($i = 0; $i -lt 12; $i++) {
+            $who = if ($i % 2) { 'player' } else { 'npc_jeffry' }
+            Probe Host "say|$who|124_village_money_chest_2" | Out-Null
+            Start-Sleep -Milliseconds 1500
+        }
+        $clash.Add("joiner speech: " + (Line Client 'speech' 'SPEECH'))
+        $j = WaitDone 'Client' 90
+        $clash.Add("joiner after 1: done=$($j.Done) failed=$($j.Failed)`n$($j.Text)")
+        Check (Alive) '1: both games still run after a conversation with lines arriving from the other player'
+        Check ($j.Done -and $j.Failed -eq 0) "1: the joiner's own conversation runs to its end while the host's lines arrive (done=$($j.Done), failed lines=$($j.Failed))"
+
+        # 2. The host in its own conversation, the joiner talking next to it.
+        Start-Sleep -Seconds 5
+        foreach ($side in 'Host','Client') { Probe $side 'close-windows' | Out-Null }
+        Probe Host 'fire-script-event|Event_124_Village_Money|124_village_money_chest_1' | Out-Null
+        Start-Sleep -Seconds 3
+        Probe Client 'scene-answer|decline' | Out-Null
+        for ($i = 0; $i -lt 12; $i++) {
+            $who = if ($i % 2) { 'player' } else { 'npc_jeffry' }
+            Probe Client "say|$who|124_village_money_chest_2" | Out-Null
+            Start-Sleep -Milliseconds 1500
+        }
+        $h = WaitDone 'Host' 90
+        $clash.Add("host after 2: done=$($h.Done) failed=$($h.Failed)`n$($h.Text)")
+        Check (Alive) '2: both games still run'
+        Check ($h.Done -and $h.Failed -eq 0) "2: the host's own conversation runs to its end while the joiner's lines arrive (done=$($h.Done), failed lines=$($h.Failed))"
+
+        # 3. Both in the same conversation with Jeffry at the same instant, neither watching the other.
+        Start-Sleep -Seconds 5
+        foreach ($side in 'Host','Client') { Probe $side 'close-windows' | Out-Null }
+        $at = [DateTime]::UtcNow.AddSeconds(3).Ticks
+        foreach ($side in 'Host','Client') { Probe $side "at|$at|fire-script-event|Event_124_Village_Money|124_village_money_chest_1" | Out-Null }
+        Start-Sleep -Seconds 6
+        foreach ($side in 'Host','Client') { Probe $side 'scene-answer|decline' | Out-Null }
+        $h3 = WaitDone 'Host' 120; $j3 = WaitDone 'Client' 60
+        $clash.Add("both after 3: host done=$($h3.Done) failed=$($h3.Failed); joiner done=$($j3.Done) failed=$($j3.Failed)")
+        Check (Alive) '3: both games still run'
+        Check ($h3.Done -and $j3.Done -and $h3.Failed -eq 0 -and $j3.Failed -eq 0) "3: both players' conversations with the same NPC at once run to their ends (host $($h3.Done)/$($h3.Failed), joiner $($j3.Done)/$($j3.Failed))"
+        $errors = @(Errors $HostPath) + @(Errors $ClientPath)
+        $clash.Add("errors:`n" + ($errors -join "`n"))
+        [IO.File]::WriteAllText((Join-Path $OutputPath 'talk-clash.txt'), ($clash -join "`n"))
+        foreach ($side in 'Host','Client') { Probe $side "shot|$(Join-Path $OutputPath "talk-clash-$($side.ToLower()).png")" | Out-Null }
+        Check ($errors.Count -eq 0) "No exception or failed line in either log ($($errors.Count): $(($errors | Select-Object -First 2) -join ' || '))"
     }
     if ($TabsExperiment) {
         function Line([string]$Peer, [string]$Command, [string]$Prefix) { (((Probe $Peer $Command) -split "`n") | Where-Object { $_ -like "$Prefix *" }) -join '' }
@@ -1987,6 +2117,17 @@ try {
         $x = if ($where -match 'client pos=\(([-\d.]+),') { [double]$Matches[1] } else { 111 }
         Check ($arena -match 'rescued=[1-9]' -and [Math]::Abs($x - 111) -gt 3) "A player on a fight island without a fight of their own is brought back ($arena; $where)"
         Probe Client "shot|$(Join-Path $OutputPath 'rescue-1-back.png')" | Out-Null
+        # Walking onto the same area from outside, 3 units a second (a late world lets players walk
+        # there; Workshop report of 5 October 2026: sent away "because of a battle"): not sent back.
+        $rescuedBefore = [int]([regex]::Match($arena, 'rescued=(\d+)').Groups[1].Value)
+        for ($wx = 86; $wx -le 110; $wx += 3) { Probe Client "body-to|$wx|16.5|3.6" | Out-Null; Start-Sleep -Seconds 1 }
+        Start-Sleep -Seconds 7
+        $walked = (Lines Client 'arena' 'ARENA') -join ''
+        $where2 = ((Lines Client 'players' 'PLAYER') | Where-Object { $_ -match 'client' }) -join ''
+        $st.Add("walked in: $walked; $where2")
+        $x2 = if ($where2 -match 'client pos=\(([-\d.]+),') { [double]$Matches[1] } else { 0 }
+        Check ([int]([regex]::Match($walked, 'rescued=(\d+)').Groups[1].Value) -eq $rescuedBefore -and [Math]::Abs($x2 - 110) -lt 3) "A player who walks into a fight area is not sent away ($walked; $where2)"
+        Probe Client 'body-to|83.5|17.4|3.6' | Out-Null
         [IO.File]::WriteAllText((Join-Path $OutputPath 'fight-rescue.txt'), ($st -join "`n"))
     }
     if ($ZombieLookExperiment) {
@@ -2936,6 +3077,120 @@ try {
         Check ($hostChop -match 'status=(Started|WaitingForWorkerPickUp|Finished)') "The host runs the joiner-placed zombie's wood-wedge craft ($hostChop)"
         Check ($clientChop -match 'status=(Started|WaitingForWorkerPickUp|Finished)') "The joiner sees their zombie's wood-wedge craft ($clientChop)"
     }
+    if ($GameLogicExperiment) {
+        function Logic([string]$Peer, [string]$Id) { ((((Probe $Peer 'gamelogics') -split "`n") | Where-Object { $_ -like "LOGIC $Id *" }) -join '').Trim() }
+        $log = New-Object System.Collections.Generic.List[string]
+        $all = @(((Probe Host 'gamelogics') -split "`n") | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^LOGIC \S+ start=Period ' })
+        $log.AddRange([string[]]$all)
+        # One without a script of its own if there is one: the test needs its clock, not its scene.
+        $pick = @($all | Where-Object { $_ -match 'script= ' -or $_ -match 'script=$' }) + @($all) | Select-Object -First 1
+        if (-not $pick) { throw 'No periodic timed event in this world.' }
+        $id = ($pick -split ' ')[1]
+        $h0 = Logic Host $id; $c0 = Logic Client $id
+        Probe Host "gamelogic-due|$id" | Out-Null
+        Probe Client "gamelogic-due|$id" | Out-Null
+        Start-Sleep -Seconds 5
+        $h1 = Logic Host $id; $c1 = Logic Client $id
+        $log.Add("picked $id; before host $h0 / joiner $c0; due on both; after host $h1 / joiner $c1")
+        $due = (Probe Client 'gamelogics') -split "`n" | Where-Object { $_ -like "LOGIC $id *" }
+        Check ($h1 -notmatch ' next=\d+\+0\.000 ') "The host runs a timed event that is due ($h1)"
+        Check ($c1 -match ' next=\d+\+0\.000 ') "A joiner does not run it itself; the event is the host's ($c1)"
+        [IO.File]::WriteAllLines((Join-Path $OutputPath 'gamelogic.txt'), $log)
+    }
+    if ($OverheadExperiment) {
+        function Heads([string]$Peer) { ((Probe $Peer 'overhead') -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ }) -join ' / ' }
+        $log = New-Object System.Collections.Generic.List[string]
+        # Side by side, so each sees the other's head in the pictures.
+        $null = (Probe Host 'where') -match 'WHERE (\S+) (\S+)'
+        $hx = [double]::Parse($Matches[1], [cultureinfo]::InvariantCulture); $hz = [double]::Parse($Matches[2], [cultureinfo]::InvariantCulture)
+        Probe Client ("body-to|{0}|{1}" -f ($hx - 1.5).ToString([cultureinfo]::InvariantCulture), ($hz + 0.5).ToString([cultureinfo]::InvariantCulture)) | Out-Null
+        Start-Sleep -Seconds 3
+        $take = (((Probe Client 'overhead-take|auto') -split "`n") | Where-Object { $_ -like 'OVERHEAD-TAKE *' }) -join ''
+        $crate = ($take -split ' ')[1]
+        Start-Sleep -Seconds 3
+        $h1 = Heads Host
+        $log.Add("joiner took $crate`: host $h1; joiner $(Heads Client)")
+        Probe Host "shot|$(Join-Path $OutputPath 'overhead-joiner-carries-host-view.png')" | Out-Null
+        Check ($h1 -match 'HEAD other shown=True') "The host sees the crate on the joiner's head ($crate; $h1)"
+        Probe Client 'overhead-drop' | Out-Null
+        Start-Sleep -Seconds 3
+        $h2 = Heads Host
+        $log.Add("joiner put it down: host $h2")
+        Check ($h2 -notmatch 'HEAD other shown=True') "The crate leaves the joiner's head on the host's screen when put down ($h2)"
+        Probe Host "overhead-take|$crate" | Out-Null
+        Start-Sleep -Seconds 3
+        $c3 = Heads Client
+        $log.Add("host took $crate`: joiner $c3")
+        Probe Client "shot|$(Join-Path $OutputPath 'overhead-host-carries-joiner-view.png')" | Out-Null
+        Check ($c3 -match 'HEAD other shown=True') "The joiner sees the crate on the host's head ($c3)"
+        Probe Host 'overhead-drop' | Out-Null
+        Start-Sleep -Seconds 3
+        # The host doing a joiner's action that ends with an item on "the player's" head.
+        $as = (((Probe Host "overhead-as|joiner|$crate") -split "`n") | Where-Object { $_ -like 'OVERHEAD-AS *' }) -join ''
+        Start-Sleep -Seconds 4
+        $h4 = Heads Host; $c4 = Heads Client
+        $log.Add("host as joiner: $as; host $h4; joiner $c4")
+        Probe Host "shot|$(Join-Path $OutputPath 'overhead-made-for-joiner-host-view.png')" | Out-Null
+        Check ($h4 -match 'OVERHEAD mine= ' -or $h4 -match 'OVERHEAD mine=$' -or $h4 -match 'OVERHEAD mine= /') "The host carries nothing after making an item for the joiner ($h4)"
+        Check ($h4 -match 'HEAD own shown=False') "Nothing shows on the host's own head for it ($h4)"
+        Check ($c4 -match "OVERHEAD mine=$crate") "The joiner carries the item the host made for them ($c4)"
+        Check ($h4 -match 'HEAD other shown=True') "The host sees it on the joiner's head ($h4)"
+        Probe Client 'overhead-drop' | Out-Null
+        [IO.File]::WriteAllLines((Join-Path $OutputPath 'overhead.txt'), $log)
+    }
+    if ($BigDropExperiment) {
+        function BigList([string]$Peer) {
+            $map = @{}
+            foreach ($line in ((Probe $Peer 'big-drops') -split "`n")) {
+                if ($line -match '^BIG ([0-9a-f-]{36}) (.*)$') { $map[$Matches[1]] = $Matches[2].Trim() }
+            }
+            return $map
+        }
+        function NewOne($Before, $After) { @($After.Keys | Where-Object { -not $Before.ContainsKey($_) }) }
+        $log = New-Object System.Collections.Generic.List[string]
+        $hostBefore = BigList Host
+        $made = @()
+        $made += (((Probe Host 'big-make|body') -split "`n") | Where-Object { $_ -like 'BIG-MAKE *' }) -join ''
+        $made += (((Probe Host 'big-make|zombie') -split "`n") | Where-Object { $_ -like 'BIG-MAKE *' }) -join ''
+        $made += (((Probe Client 'big-make|body') -split "`n") | Where-Object { $_ -like 'BIG-MAKE *' }) -join ''
+        $made | ForEach-Object { $log.Add("made $_") }
+        Start-Sleep -Seconds 5
+        $hostAfter = BigList Host
+        $clientAfter = BigList Client
+        $new = NewOne $hostBefore $hostAfter
+        foreach ($id in $hostAfter.Keys) { $log.Add("host   $id $($hostAfter[$id])") }
+        foreach ($id in $clientAfter.Keys) { $log.Add("joiner $id $($clientAfter[$id])") }
+        Check ($new.Count -eq 3) "The host has the three new big drops ($($new.Count); $($made -join '; '))"
+        foreach ($id in $new) {
+            $h = $hostAfter[$id] -replace ' scene=\S+', ''
+            $c = if ($clientAfter.ContainsKey($id)) { $clientAfter[$id] -replace ' scene=\S+', '' } else { '(none)' }
+            Check ($h -eq $c) "The joiner has big drop $id as the host has it, with what is inside (host $h; joiner $c)"
+            if ($h -match 'zombie=known') { Check ($c -match 'zombie=known') "The joiner knows the zombie of big drop $id ($c)" }
+        }
+        Check ($hostAfter.Count -eq $clientAfter.Count) "Both have the same number of big drops (host $($hostAfter.Count); joiner $($clientAfter.Count))"
+        $body = @($new | Where-Object { $hostAfter[$_] -notmatch 'zombie=known' })[0]
+        $zombieDrop = @($new | Where-Object { $hostAfter[$_] -match 'zombie=known' })[0]
+        if ($body) {
+            $take = (((Probe Host "big-take|$body") -split "`n") | Where-Object { $_ -like 'BIG-TAKE *' }) -join ''
+            $log.Add("host take $take")
+            Start-Sleep -Seconds 4
+            Check ($take -match ' True ') "The host takes a big drop onto the head ($take)"
+            Check (-not (BigList Client).ContainsKey($body)) "A big drop the host takes leaves the joiner's world ($body)"
+        }
+        if ($zombieDrop) {
+            $take = (((Probe Client "big-take|$zombieDrop") -split "`n") | Where-Object { $_ -like 'BIG-TAKE *' }) -join ''
+            $log.Add("joiner take $take")
+            Start-Sleep -Seconds 4
+            Check ($take -match ' True ') "The joiner takes a zombie drop onto the head ($take)"
+            Check (-not (BigList Host).ContainsKey($zombieDrop)) "A zombie drop the joiner takes leaves the host's world ($zombieDrop)"
+            $again = (((Probe Host "big-take|$zombieDrop") -split "`n") | Where-Object { $_ -like 'BIG-TAKE *' }) -join ''
+            $log.Add("host take again $again")
+            Check ($again -match 'noview') "The host cannot take the zombie the joiner carries a second time ($again)"
+        }
+        $log.Add("end host:"); (BigList Host).GetEnumerator() | ForEach-Object { $log.Add("  $($_.Key) $($_.Value)") }
+        $log.Add("end joiner:"); (BigList Client).GetEnumerator() | ForEach-Object { $log.Add("  $($_.Key) $($_.Value)") }
+        [IO.File]::WriteAllLines((Join-Path $OutputPath 'big-drops.txt'), $log)
+    }
     if ($ZombieExperiment) {
         function Zombie([string]$Peer, [string]$Id) { ((((Probe $Peer 'zombies') -split "`n") | Where-Object { $_ -like "ZOMBIE $Id *" }) -join '').Trim() }
         function Spot([string]$line) { if ($line -match 'pos=\(([-0-9.]+), ([-0-9.]+), ([-0-9.]+)\)') { return @([double]$Matches[1], [double]$Matches[3]) } return $null }
@@ -3239,6 +3494,75 @@ try {
             }
         }
     }
+    if ($CraftCancelExperiment) {
+        function Items([string]$Peer, [string]$Id) { ((((Probe $Peer "station-items|$Id") -split "`n") | Where-Object { $_ -like 'STATION-ITEMS *' }) -join '').Trim() }
+        function DropTotal([string]$Peer) { $null = ((Probe $Peer 'progress') -join "`n") -match 'drops=(\d+)'; [int]$Matches[1] }
+        $log = New-Object System.Collections.Generic.List[string]
+        $clientStations = Probe Client 'stations'
+        # A furnace first (the report's Furnace II), with the joiner given what one recipe needs, so
+        # the cancelled craft really ran and had ingredients in it.
+        $station = $null; $recipe = $null; $kind = $null; $needs = $null
+        foreach ($line in @($clientStations -split "`n" | Where-Object { $_ -match ' shared=True ' -and $_ -match '^STATION \S+ \S*furnace' -and $_ -match 'queue=0 ' })) {
+            $null = $line -match '^STATION (\S+) (\S+) '
+            $candidate = $Matches[1]; $candidateKind = $Matches[2]
+            foreach ($r in ((Probe Client "craft-needs|$candidate") -split "`n" | ForEach-Object { $_.Trim() } | Where-Object { $_ -like 'RECIPE *' })) {
+                if ($r -match '^RECIPE (\S+) auto=\S+ replace=\S* ?needs=(\S+)$' -and $Matches[1] -notmatch '^quest' -and $Matches[2] -notmatch ':(?!None)[A-Za-z]+(,|$)') {
+                    $recipe = $Matches[1]; $needs = $Matches[2]; $station = $candidate; $kind = $candidateKind; break
+                }
+            }
+            if ($recipe) { break }
+        }
+        if ($recipe) {
+            foreach ($n in ($needs -split ',')) { $p = $n -split ':'; $log.Add((Probe Client "give|$($p[0])|$([int]$p[1] * 2)") -join ' ') }
+        } else {
+            $pick = @($clientStations -split "`n" | Where-Object { $_ -match ' shared=True ' -and $_ -match 'startable=(?!none)' -and $_ -match 'status=(None|Finished|Canceled)' -and $_ -match 'queue=0 ' }) | Select-Object -First 1
+            if (-not $pick) { throw 'No idle shared station with a startable craft.' }
+            $null = $pick -match '^STATION (\S+) (\S+) .*startable=(\S+)'
+            $station = $Matches[1]; $kind = $Matches[2]; $recipe = $Matches[3]
+        }
+        $log.Add("station $station $kind recipe $recipe needs $needs")
+        $drops0 = DropTotal Host
+        $log.Add((Probe Client "craft|$station|$recipe") -join ' ')
+        $log.Add((Probe Client "craft|$station|$recipe") -join ' ')
+        Start-Sleep -Seconds 6
+        $h1 = Items Host $station; $c1 = Items Client $station
+        $log.Add("queued two: host $h1; joiner $c1")
+        Check ($h1 -match 'cur=(?!-)' -or $h1 -match 'queue=\S+x') "The joiner's two crafts reach the host's $kind ($h1)"
+        Check ($h1 -eq $c1) "Both show the same $kind after queueing (host $h1; joiner $c1)"
+        # The furnace window's plus and minus change a queued craft's count in place (the last
+        # entry: two equal crafts may share one entry).
+        function LastCount([string]$line) { if ($line -match 'queue=(\S*)') { $e = @($Matches[1] -split ',' | Where-Object { $_ }); if ($e.Count) { return @(($e.Count - 1), [int](($e[-1] -split 'x')[-1])) } } return @(-1, -1) }
+        $lc = LastCount $h1
+        $log.Add((Probe Client "craft-count|$station|$($lc[0])|3") -join ' ')
+        Start-Sleep -Seconds 5
+        $hc = Items Host $station; $cc = Items Client $station
+        $log.Add("joiner +3 on entry $($lc[0]) (was $($lc[1])): host $hc; joiner $cc")
+        Check ((LastCount $hc)[1] -eq $lc[1] + 3 -and $hc -eq $cc) "A count the joiner raises in the queue reaches the host (was $($lc[1]); host $hc; joiner $cc)"
+        $log.Add((Probe Client "craft-count|$station|$($lc[0])|-2") -join ' ')
+        Start-Sleep -Seconds 5
+        $hc = Items Host $station; $cc = Items Client $station
+        $log.Add("joiner -2: host $hc; joiner $cc")
+        Check ((LastCount $hc)[1] -eq $lc[1] + 1 -and $hc -eq $cc) "A count the joiner lowers in the queue reaches the host (host $hc; joiner $cc)"
+        $log.Add((Probe Client "craft-cancel|$station") -join ' ')
+        Start-Sleep -Seconds 6
+        $h2 = Items Host $station; $c2 = Items Client $station
+        $dh = DropTotal Host; $dc = DropTotal Client
+        $log.Add("cancelled: host $h2; joiner $c2; drops host $drops0 -> $dh, joiner $dc")
+        Check ($h2 -eq $c2) "Both show the same $kind after the joiner cancels the running craft (host $h2; joiner $c2)"
+        Check ($dh -eq $dc) "The cancelled craft's ingredients lie on the ground once, for both (host $dh; joiner $dc drops)"
+        $log.Add((Probe Client "craft-remove|$station|0") -join ' ')
+        Start-Sleep -Seconds 6
+        $h3 = Items Host $station; $c3 = Items Client $station
+        $log.Add("removed: host $h3; joiner $c3")
+        Check ($h3 -eq $c3) "Both show the same $kind after the joiner removes a queued craft (host $h3; joiner $c3)"
+        Check (([regex]::Matches($c3, "$($recipe)x").Count) -lt ([regex]::Matches($c2, "$($recipe)x").Count)) "The removed craft is gone from the joiner's queue (before $c2; after $c3)"
+        Probe Host "craft-cancel|$station" | Out-Null
+        Start-Sleep -Seconds 6
+        $h4 = Items Host $station; $c4 = Items Client $station
+        $log.Add("host cancelled: host $h4; joiner $c4")
+        Check ($h4 -eq $c4) "Both show the same $kind after the host cancels (host $h4; joiner $c4)"
+        [IO.File]::WriteAllLines((Join-Path $OutputPath 'craft-cancel.txt'), $log)
+    }
     if ($CraftExperiment) {
         function StationLine([string]$Peer, [string]$Id) {
             (((Probe $Peer 'stations') -split "`n" | Where-Object { $_ -like "STATION $Id *" }) -join '') -replace ' startable=\S+', ''
@@ -3356,6 +3680,12 @@ try {
             Check ($ht -notmatch 'status=(None|Finished|ReadyToStartCraft|DoesntHaveRequiredTool)') "A joiner carrying the tool starts a $toolType craft on the host, although the host has no $toolType ($ht)"
         }
         Get-Content -LiteralPath (Join-Path $OutputPath 'craft-observations.txt') | Write-Host
+    }
+    if ($SaveAtEnd) {
+        foreach ($side in 'Host','Client') { Probe $side 'close-windows' | Out-Null }
+        $saved = (((Probe Host 'save-now') -split "`n") | Where-Object { $_ -like 'SAVE-NOW *' }) -join ''
+        Start-Sleep -Seconds 8
+        Check ($saved -match "SAVE-NOW $slot") "The host saves the co-op world ($saved)"
     }
 }
 finally {

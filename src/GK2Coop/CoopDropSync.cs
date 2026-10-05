@@ -65,7 +65,8 @@ namespace GK2Coop
                    ", pickup requests sent/received=" + pickupRequestsSent + "/" + pickupRequestsReceived +
                    ", accepted=" + pickupAccepted + ", rejected=" + pickupRejected +
                    ", results applied=" + pickupResultsApplied + ", merges sent/applied=" +
-                   mergesSent + "/" + mergesApplied + ", unresolved=" + unresolved;
+                   mergesSent + "/" + mergesApplied + ", big takes sent/applied=" + bigTakesSent + "/" + bigTakesApplied +
+                   ", unresolved=" + unresolved;
         }
 
         internal static void Install(Harmony harmony)
@@ -125,6 +126,17 @@ namespace GK2Coop
                 {
                     log.LogWarning("DropView.Merge not found; merged drops will not be replicated.");
                 }
+                MethodInfo bigTake = AccessTools.Method(typeof(BigDropInteractionHandler), nameof(BigDropInteractionHandler.Interact));
+                if (bigTake != null && BigDropField != null)
+                {
+                    harmony.Patch(bigTake,
+                        prefix: new HarmonyMethod(AccessTools.Method(typeof(CoopDropSync), nameof(BigTakePrefix))),
+                        postfix: new HarmonyMethod(AccessTools.Method(typeof(CoopDropSync), nameof(BigTakePostfix))));
+                }
+                else
+                {
+                    log.LogWarning("BigDropInteractionHandler.Interact not found; taking a big drop is not shared.");
+                }
                 log.LogInfo("Patched drops for sharing (spawn plus host-authoritative pickup).");
             }
             catch (Exception ex)
@@ -166,7 +178,9 @@ namespace GK2Coop
                 }
                 var position = (Vector3)rawPos;
 
-                using (var writer = new FastBufferWriter(512, Allocator.Temp))
+                byte[] whole = WholeItem(item);
+                byte[] zombie = ZombieOf(item);
+                using (var writer = new FastBufferWriter(1024 + (whole?.Length ?? 0) + (zombie?.Length ?? 0), Allocator.Temp))
                 {
                     writer.WriteValueSafe(++outgoingSequence);
                     writer.WriteValueSafe(new FixedString128Bytes(uniqueId));
@@ -176,6 +190,8 @@ namespace GK2Coop
                     writer.WriteValueSafe(position);
                     // The world object whose harvest this is (empty for other drops); read by 0.65.3 on.
                     writer.WriteValueSafe(new FixedString128Bytes(CoopWorldSync.LocalDeathOrigin ?? string.Empty));
+                    WriteBlob(writer, whole);
+                    WriteBlob(writer, zombie);
                     Broadcast(netcode, SpawnMessage, writer);
                 }
                 spawnsSent++;
@@ -372,6 +388,9 @@ namespace GK2Coop
                 {
                     reader.ReadValueSafe(out origin);
                 }
+                // 0.65.7 on: the whole item and, for a zombie, the zombie (absent from older peers).
+                byte[] whole = ReadBlob(ref reader);
+                byte[] zombie = ReadBlob(ref reader);
 
                 string key = uniqueId.ToString();
                 // Not yet in a world (connected in the main menu to copy it): the drop cannot be made here,
@@ -401,14 +420,14 @@ namespace GK2Coop
                     SendPickupResult(hostSide, ulong.MaxValue, key, itemId.ToString(), 0, 0, false);
                     return;
                 }
-                SpawnMirrored(key, itemId.ToString(), count, worldId.ToString(), position);
+                SpawnMirrored(key, itemId.ToString(), count, worldId.ToString(), position, whole, zombie);
 
                 // The host is the only route between two clients: a client broadcasts only to the
                 // server, so without this a drop one client creates never reaches the other.
                 NetworkManager netcode = NetworkManager.Singleton;
                 if (netcode != null && netcode.IsHost)
                 {
-                    using (var writer = new FastBufferWriter(512, Allocator.Temp))
+                    using (var writer = new FastBufferWriter(1024 + (whole?.Length ?? 0) + (zombie?.Length ?? 0), Allocator.Temp))
                     {
                         writer.WriteValueSafe(++outgoingSequence);
                         writer.WriteValueSafe(uniqueId);
@@ -417,6 +436,8 @@ namespace GK2Coop
                         writer.WriteValueSafe(worldId);
                         writer.WriteValueSafe(position);
                         writer.WriteValueSafe(origin);
+                        WriteBlob(writer, whole);
+                        WriteBlob(writer, zombie);
                         foreach (ulong clientId in netcode.ConnectedClientsIds)
                         {
                             if (clientId != netcode.LocalClientId && clientId != senderClientId)
@@ -538,14 +559,33 @@ namespace GK2Coop
             completedPickups.Clear();
         }
 
-        private static void SpawnMirrored(string uniqueId, string itemId, int count, string worldId, Vector3 position)
+        private static void SpawnMirrored(string uniqueId, string itemId, int count, string worldId, Vector3 position, byte[] whole = null, byte[] zombie = null)
         {
             applyingRemote = true;
             try
             {
-                Type itemType = Plugin.FindGameType("Item");
-                object item = Activator.CreateInstance(itemType, itemId, count);
+                object item = null;
+                if (whole != null)
+                {
+                    try
+                    {
+                        // The item itself: a body with its organs (its skulls), a zombie, a filled box.
+                        item = CoopGameSerializer.Deserialize(typeof(Item), Decompress(whole));
+                    }
+                    catch (Exception ex)
+                    {
+                        log.LogWarning("Drop sync: could not read a whole " + itemId + "; made from its id: " + Plugin.Unwrap(ex).Message);
+                    }
+                }
+                if (item == null)
+                {
+                    item = Activator.CreateInstance(Plugin.FindGameType("Item"), itemId, count);
+                }
                 ForceItemGuid(item, uniqueId);
+                if (zombie != null)
+                {
+                    AddZombie(uniqueId, zombie);
+                }
 
                 object dropSystem = GetDropSystem();
                 MethodInfo asDropView = dropSystem == null
@@ -1057,7 +1097,9 @@ namespace GK2Coop
                         continue;
                     }
                     object rawPos = CoopDiagnostics.GetMember(drop, "Position");
-                    using (var writer = new FastBufferWriter(512, Allocator.Temp))
+                    byte[] whole = WholeItem(item);
+                    byte[] zombie = ZombieOf(item);
+                    using (var writer = new FastBufferWriter(1024 + (whole?.Length ?? 0) + (zombie?.Length ?? 0), Allocator.Temp))
                     {
                         writer.WriteValueSafe(++outgoingSequence);
                         writer.WriteValueSafe(new FixedString128Bytes(uniqueId));
@@ -1065,6 +1107,9 @@ namespace GK2Coop
                         writer.WriteValueSafe(Convert.ToInt32(CoopDiagnostics.GetMember(drop, "Count")));
                         writer.WriteValueSafe(new FixedString128Bytes(worldId));
                         writer.WriteValueSafe(rawPos is Vector3 ? (Vector3)rawPos : Vector3.zero);
+                        writer.WriteValueSafe(new FixedString128Bytes(string.Empty));
+                        WriteBlob(writer, whole);
+                        WriteBlob(writer, zombie);
                         netcode.CustomMessagingManager.SendNamedMessage(
                             SpawnMessage, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
                     }
@@ -1166,14 +1211,224 @@ namespace GK2Coop
             }
         }
 
-        private static string ReadItemGuid(object item)
+        // ------------------------------------------------------------------ whole items
+
+        /// <summary>
+        /// Big drops, filled ones and zombies are sent whole: made again from their id, a body
+        /// came without its organs (no skulls) and a zombie without the zombie behind it (a white
+        /// box that could not be used). Plain small items stay id and count.
+        /// </summary>
+        internal static byte[] WholeItem(object raw, bool always = false)
+        {
+            if (!(raw is Item item) || item.Definition == null ||
+                (!always && item.Definition.itemSize != ItemSize.Big && item.InventoryCount == 0 && !item.Definition.isLinkedToWgo))
+            {
+                return null;
+            }
+            try
+            {
+                return Compress(CoopGameSerializer.Serialize(item));
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Drop sync: could not send " + item.id + " whole: " + Plugin.Unwrap(ex).Message);
+                return null;
+            }
+        }
+
+        internal static byte[] ZombieOf(object raw)
+        {
+            if (!(raw is Item item) || item.Definition == null || !item.Definition.isLinkedToWgo || MainGame.ZombieSystemData == null)
+            {
+                return null;
+            }
+            try
+            {
+                ZombieWgoData zombie = MainGame.ZombieSystemData.GetZombie(item.UniqueId);
+                return zombie == null ? null : Compress(CoopGameSerializer.Serialize(zombie));
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Drop sync: could not send the zombie of " + item.id + ": " + Plugin.Unwrap(ex).Message);
+                return null;
+            }
+        }
+
+        /// <summary>The zombie of a mirrored zombie drop, into this world's zombie store if it is not there.</summary>
+        internal static void AddZombie(string uniqueId, byte[] payload)
+        {
+            try
+            {
+                ZombieSystemData system = MainGame.ZombieSystemData;
+                if (system == null || !(CoopGameSerializer.Deserialize(typeof(ZombieWgoData), Decompress(payload)) is ZombieWgoData zombie))
+                {
+                    return;
+                }
+                if (system.GetZombie(zombie.UniqueId) != null)
+                {
+                    return;
+                }
+                system.zombieDrops.Add(zombie);
+                system.Cache[zombie.UniqueId.Guid] = zombie;
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Drop sync: could not add the zombie of drop " + Shorten(uniqueId) + ": " + Plugin.Unwrap(ex).Message);
+            }
+        }
+
+        private static void WriteBlob(FastBufferWriter writer, byte[] blob)
+        {
+            writer.WriteValueSafe(blob == null ? 0 : blob.Length);
+            if (blob != null && blob.Length > 0)
+            {
+                writer.WriteBytesSafe(blob, blob.Length);
+            }
+        }
+
+        private static byte[] ReadBlob(ref FastBufferReader reader)
+        {
+            if (reader.Position + sizeof(int) > reader.Length)
+            {
+                return null;
+            }
+            reader.ReadValueSafe(out int length);
+            if (length <= 0 || length > 4 * 1024 * 1024 || reader.Position + length > reader.Length)
+            {
+                return null;
+            }
+            byte[] blob = new byte[length];
+            reader.ReadBytesSafe(ref blob, length);
+            return blob;
+        }
+
+        private static byte[] Compress(byte[] raw)
+        {
+            using (var output = new System.IO.MemoryStream())
+            {
+                using (var gzip = new System.IO.Compression.GZipStream(output, System.IO.Compression.CompressionLevel.Fastest, true))
+                {
+                    gzip.Write(raw, 0, raw.Length);
+                }
+                return output.ToArray();
+            }
+        }
+
+        internal static byte[] Decompress(byte[] compressed)
+        {
+            using (var input = new System.IO.Compression.GZipStream(new System.IO.MemoryStream(compressed), System.IO.Compression.CompressionMode.Decompress))
+            using (var output = new System.IO.MemoryStream())
+            {
+                input.CopyTo(output);
+                return output.ToArray();
+            }
+        }
+
+        // ------------------------------------------------------------------ big drops taken
+
+        internal const string TakenMessage = "GK2Coop.DropTaken.v1";
+
+        /// <summary>
+        /// A big drop (a body, a zombie, a crate) is taken onto the head through its own
+        /// interaction (<c>BigDropInteractionHandler.Interact</c>: the drop removed, the item
+        /// carried), not through the collector the pickup sync handles. Nobody else heard of it:
+        /// the others kept the drop, could take it too, and the item doubled (Workshop report,
+        /// 5 October 2026). Now taking it removes it for everyone.
+        /// </summary>
+        private static void BigTakePrefix(BigDropInteractionHandler __instance, ref string __state)
+        {
+            __state = null;
+            try
+            {
+                if (Enabled && !applyingRemote && BigDropField?.GetValue(__instance) is DropView view && view != null && view.Data != null)
+                {
+                    __state = ReadDropGuid(view);
+                }
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        private static void BigTakePostfix(bool __result, string __state)
+        {
+            if (!__result || string.IsNullOrEmpty(__state))
+            {
+                return;
+            }
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!SessionIsLive(netcode))
+            {
+                return;
+            }
+            completedPickups.Add(__state);
+            using (var writer = new FastBufferWriter(256, Allocator.Temp))
+            {
+                writer.WriteValueSafe(new FixedString128Bytes(__state));
+                Broadcast(netcode, TakenMessage, writer);
+            }
+            bigTakesSent++;
+        }
+
+        internal static void ReceiveTaken(ulong senderClientId, FastBufferReader reader)
+        {
+            NetworkManager netcode = NetworkManager.Singleton;
+            if (!Enabled || netcode == null || !netcode.IsListening)
+            {
+                return;
+            }
+            try
+            {
+                reader.ReadValueSafe(out FixedString128Bytes id);
+                string key = id.ToString();
+                completedPickups.Add(key);
+                object drop = FindDrop(key);
+                if (drop != null)
+                {
+                    applyingRemote = true;
+                    try
+                    {
+                        RemoveDrop(drop);
+                    }
+                    finally
+                    {
+                        applyingRemote = false;
+                    }
+                    bigTakesApplied++;
+                }
+                if (netcode.IsHost)
+                {
+                    using (var writer = new FastBufferWriter(256, Allocator.Temp))
+                    {
+                        writer.WriteValueSafe(id);
+                        foreach (ulong clientId in netcode.ConnectedClientsIds)
+                        {
+                            if (clientId != netcode.LocalClientId && clientId != senderClientId)
+                            {
+                                netcode.CustomMessagingManager.SendNamedMessage(TakenMessage, clientId, writer, NetworkDelivery.ReliableFragmentedSequenced);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning("Drop sync: could not apply a big drop taken by " + senderClientId + ": " + ex.Message);
+            }
+        }
+
+        private static readonly FieldInfo BigDropField = AccessTools.Field(typeof(BigDropInteractionHandler), "drop");
+        private static int bigTakesSent;
+        private static int bigTakesApplied;
+
+        internal static string ReadItemGuid(object item)
         {
             object guid = CoopDiagnostics.GetMember(item, "UniqueId");
             object id = guid == null ? null : CoopDiagnostics.GetMember(guid, "Id");
             return id == null ? null : id.ToString();
         }
 
-        private static void ForceItemGuid(object item, string uniqueId)
+        internal static void ForceItemGuid(object item, string uniqueId)
         {
             object guid = CoopDiagnostics.GetMember(item, "UniqueId");
             if (guid == null)

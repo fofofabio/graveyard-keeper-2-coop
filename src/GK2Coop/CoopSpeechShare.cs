@@ -46,6 +46,7 @@ namespace GK2Coop
             try
             {
                 harmony.Patch(AccessTools.Method(typeof(Bubble), nameof(Bubble.Talk)), prefix: new HarmonyMethod(typeof(CoopSpeechShare), nameof(TalkPrefix)));
+                harmony.Patch(AccessTools.Method(typeof(GlobalEventsSystem), nameof(GlobalEventsSystem.FireTrigger)), prefix: new HarmonyMethod(typeof(CoopSpeechShare), nameof(MirroredTriggerPrefix)));
                 presetsField = AccessTools.Field(typeof(Bubble), "speechBubblePresets");
             }
             catch (Exception ex)
@@ -118,6 +119,34 @@ namespace GK2Coop
             }
         }
 
+        /// <summary>
+        /// A line shown for another player is not said here: the game's "speech said" event, which
+        /// quests and scene scripts wait for, is not fired for it.
+        /// </summary>
+        private static bool MirroredTriggerPrefix(GlobalEventsSystem.Event.Type type)
+        {
+            return !(showingMirrored && type == GlobalEventsSystem.Event.Type.SpeechSay);
+        }
+
+        /// <summary>
+        /// This player is in a conversation or a story scene of their own. Another player's line
+        /// shown through the game's dialogue bubble could then take the place of the line their own
+        /// conversation is showing (one bubble per speaker) and that conversation waits for its line
+        /// to end: it hung, or went on twice.
+        /// </summary>
+        private static bool InOwnConversation(PlayerController controller)
+        {
+            try
+            {
+                return !controller.IsControlEnabledByType(TakenControlType.ByFlow) ||
+                       !controller.IsControlEnabledByType(TakenControlType.ByCinematics);
+            }
+            catch (Exception)
+            {
+                return true;
+            }
+        }
+
         // ---------------------------------------------------------------- the others
 
         internal static void Receive(ulong sender, FastBufferReader reader)
@@ -154,7 +183,8 @@ namespace GK2Coop
             PlayerController controller = MainGame.PlayerController;
             PlayerData player = MainGame.PlayerData;
             if (CoopSceneShare.Replaying || controller == null || player == null || player.currentGameSceneId != scene ||
-                Vector3.Distance(((Component)controller).transform.position, where) > HearingDistance)
+                Vector3.Distance(((Component)controller).transform.position, where) > HearingDistance ||
+                InOwnConversation(controller))
             {
                 ignored++;
                 return;

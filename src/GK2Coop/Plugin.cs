@@ -21,7 +21,7 @@ namespace GK2Coop
     {
         public const string Id = "com.fabio.gk2coop";
         public const string Name = "Graveyard Keeper 2 Co-op Prototype";
-        public const string Version = "0.65.6";
+        public const string Version = "0.65.7";
 
         private ConfigEntry<KeyCode> overlayKey;
         private ConfigEntry<string> defaultAddress;
@@ -268,6 +268,8 @@ namespace GK2Coop
             CoopQuestSync.Init(Logger);
             CoopQuestSync.Enabled = shareQuestProgress.Value;
             CoopDropSync.Init(Logger);
+            CoopTechPointSync.Init(Logger);
+            CoopOverheadSync.Init(Logger);
             CoopDropSync.Enabled = shareDrops.Value;
             CoopContainerSync.Init(Logger);
             CoopContainerSync.Enabled = shareContainers.Value;
@@ -333,6 +335,8 @@ namespace GK2Coop
             CoopHostRelay.Install(coopHarmony);
             CoopNetStats.Install(coopHarmony);
             CoopDropSync.Install(coopHarmony);
+            CoopTechPointSync.Install(coopHarmony);
+            CoopOverheadSync.Install(coopHarmony);
             CoopContainerSync.Install(coopHarmony);
             CoopStableIds.Install(coopHarmony);
             CoopGardenSync.Install(coopHarmony);
@@ -566,6 +570,7 @@ namespace GK2Coop
             }
             CoopZombieSync.Tick();
             CoopCraftSync.Pump();
+            CoopOverheadSync.Tick();
             CoopChat.Update(IsOnMainMenu);
             try
             {
